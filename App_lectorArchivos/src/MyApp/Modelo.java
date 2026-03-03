@@ -15,7 +15,7 @@ String msg = "Adeu";
 	}
 	
 	public List<String[]> leerCSV(String ruta) throws IOException {
-		List<String[]> datos = new ArrayList<>();
+		List<String[]> datos = new ArrayList<String[]>();
 		BufferedReader br = new BufferedReader(new FileReader(ruta ));
 		String linea; 
 		
