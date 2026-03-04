@@ -1,0 +1,4 @@
+Crear el si o n antes de eliminar y agregar fila
+Crear interfaz
+añadir nuevos campos
+verificar bien el codigo.
