@@ -129,15 +129,14 @@ public class Modelo {
 					// obtenerValorCelda(row.getCell(6)) + " | Celda 7: " +
 					// obtenerValorCelda(row.getCell(7)));
 
-					Document material = new Document().append("A3", a3)
+					Document material = new Document().append("A3", Integer.parseInt(a3))
 							.append("marca", obtenerValorCelda(row.getCell(1)))
 							.append("referencia", obtenerValorCelda(row.getCell(2)))
 							.append("descripcion", obtenerValorCelda(row.getCell(3)))
-							.append("salidaUnidad", obtenerValorCelda(row.getCell(4)))
-							.append("entradaUnidad", obtenerValorCelda(row.getCell(6)))
-							.append("pedido", obtenerValorCelda(row.getCell(9))) // Verifica si es la columna G
-							.append("totalPedido", obtenerValorCelda(row.getCell(8))); // Verifica si es la columna H
-
+							.append("salidaUnidad", parseEntero(obtenerValorCelda(row.getCell(4))))
+							.append("entradaUnidad", parseEntero(obtenerValorCelda(row.getCell(6))))
+							.append("totalPedido", parseEntero(obtenerValorCelda(row.getCell(8))))
+							.append("pedido", obtenerValorCelda(row.getCell(9)));
 					listaMateriales.add(material);
 				}
 			}
@@ -181,13 +180,19 @@ public class Modelo {
 		MongoCursor<Document> cursor = coleccion.find().iterator();
 		int contador = 0;
 
+		if (!cursor.hasNext()) {
+			System.out.println("==============================================");
+			System.out.println("No hay obras disponibles.");
+			System.out.println("==============================================");
+			return;
+		}
 		System.out.println("================ TITULOS OBRAS =================");
-
 		while (cursor.hasNext()) {
 			contador++;
 			JSONObject jsonO = new JSONObject(cursor.next().toJson());
 			String obra = jsonO.getString("obra");
-			System.out.println(contador + " - Ref: obra: " + obra);
+
+			System.out.println(contador + " - Ref obra: " + obra);
 		}
 		System.out.println("==============================================");
 	}
@@ -270,10 +275,33 @@ public class Modelo {
 		System.out.println("Ingresa la referencia de obra que deseas actualizar:");
 		String numeroObra = teclado.nextLine();
 
-		System.out.println("Ingresa el número de A3 que deseas editar:");
-		String numeroA3 = teclado.nextLine();
+		// 1️⃣ Verificar si existe la obra
+		Document obra = coleccion.find(eq("obra", numeroObra)).first();
 
-		// Restamos 1 porque los arrays empiezan en 0
+		if (obra == null) {
+			System.out.println("La obra no existe.");
+			return;
+		}
+
+		System.out.println("Ingresa el número de A3 que deseas editar:");
+		int numeroA3 = teclado.nextInt();
+
+		// 2️⃣ Verificar si existe ese A3 dentro de la obra
+		List<Document> materiales = (List<Document>) obra.get("materiales");
+
+		boolean a3Encontrado = false;
+
+		for (Document material : materiales) {
+			if (material.getInteger("A3").equals(numeroA3)) {
+				a3Encontrado = true;
+				break;
+			}
+		}
+
+		if (!a3Encontrado) {
+			System.out.println("El número A3 no existe en esa obra.");
+			return;
+		}
 
 		System.out.println(" MINI MENU DE ACTUALIZACIÓN ");
 		System.out.println("==================================");
@@ -326,58 +354,128 @@ public class Modelo {
 		System.out.println("Ingresa el nuevo valor:");
 		String nuevoValor = teclado.nextLine();
 
-		coleccion.updateOne(and(eq("obra", numeroObra), eq("materiales.A3", numeroA3)),
-				new Document("$set", new Document(campoActualizar, nuevoValor)));
+		System.out.println("¿Estas seguro que quieres atualizar la fila (S/N)? ");
+		String confirmacion = teclado.nextLine();
 
-		System.out.println("Fila actualizada correctamente.");
+		if (confirmacion.equalsIgnoreCase("S")) {
+			coleccion.updateOne(and(eq("obra", numeroObra), eq("materiales.A3", numeroA3)),
+					new Document("$set", new Document(campoActualizar, nuevoValor)));
+
+			System.out.println("Fila actualizada correctamente.");
+
+		} else {
+			System.out.println("Operacion cancelada. No se actualizo la fila.");
+		}
+
 	}
 
 	public static void eliminarFila(MongoCollection<Document> coleccion) {
+
 		Scanner teclado = new Scanner(System.in);
 
-		// Pedimos la obra
 		System.out.println("Ingresa la referencia de obra:");
 		String numeroObra = teclado.nextLine();
 
-		// Pedimos el número de A3 de la fila a eliminar (como String)
+		// 1️⃣ Verificar si existe la obra
+		Document obra = coleccion.find(eq("obra", numeroObra)).first();
+
+		if (obra == null) {
+			System.out.println("La obra no existe.");
+			return;
+		}
+
 		System.out.println("Ingresa el número de A3 de la fila que deseas eliminar:");
-		String numeroA3 = teclado.nextLine();
+		int numeroA3 = teclado.nextInt();
+		teclado.nextLine();
 
-		// Eliminamos solo el elemento del array "materiales" que tenga ese numeroA3
-		UpdateResult resultado = coleccion.updateOne(eq("obra", numeroObra),
-				new Document("$pull", new Document("materiales", new Document("A3", numeroA3))));
+		// 2️⃣ Verificar si existe ese A3 dentro de la obra
+		List<Document> materiales = (List<Document>) obra.get("materiales");
 
-		System.out.println("Fila eliminada correctamente.");
+		boolean a3Encontrado = false;
+
+		for (Document material : materiales) {
+			if (material.getInteger("A3").equals(numeroA3)) {
+				a3Encontrado = true;
+				break;
+			}
+		}
+
+		if (!a3Encontrado) {
+			System.out.println("El número A3 no existe en esa obra.");
+			return;
+		}
+
+		System.out.println("¿Estas seguro que quiere eliminar la fila (S/N)?");
+		String cofirmacion = teclado.nextLine();
+
+		if (cofirmacion.equalsIgnoreCase("S")) {
+			// 3️⃣ Eliminar
+			coleccion.updateOne(eq("obra", numeroObra),
+					new Document("$pull", new Document("materiales", new Document("A3", numeroA3))));
+
+			System.out.println("Fila eliminada correctamente.");
+		} else {
+			System.out.println("Operacion Cancelada. No se ha eliminado la fila.");
+		}
+
 	}
 
 	public static void agregarFila(MongoCollection<Document> coleccion) {
+
 		Scanner teclado = new Scanner(System.in);
 
-		System.out.println("Ingresa la referencia de obra a la que deseas agregar una fila:");
+		System.out.println("Ingresa la referencia de obra:");
 		String numeroObra = teclado.nextLine();
 
+		// Buscamos directamente la obra
+		Document obra = coleccion.find(eq("obra", numeroObra)).first();
+
+		if (obra == null) {
+			System.out.println("No se encontró la obra. Operación cancelada.");
+			return;
+		}
+
+		System.out.println("Obra encontrada. Procediendo a agregar fila...");
+
 		Document nuevaFila = new Document();
+
 		System.out.println("Ingresa el número de A3:");
-		nuevaFila.append("A3", teclado.nextLine());
+		nuevaFila.append("A3", Integer.parseInt(teclado.nextLine()));
+
 		System.out.println("Ingresa la marca:");
 		nuevaFila.append("marca", teclado.nextLine());
+
 		System.out.println("Ingresa la referencia:");
 		nuevaFila.append("referencia", teclado.nextLine());
+
 		System.out.println("Ingresa la descripción:");
 		nuevaFila.append("descripcion", teclado.nextLine());
+
 		System.out.println("Ingresa la salida unidad:");
-		nuevaFila.append("salidaUnidad", teclado.nextLine());
+		nuevaFila.append("salidaUnidad", Integer.parseInt(teclado.nextLine()));
+
 		System.out.println("Ingresa la entrada unidad:");
-		nuevaFila.append("entradaUnidad", teclado.nextLine());
+		nuevaFila.append("entradaUnidad", Integer.parseInt(teclado.nextLine()));
+
 		System.out.println("Ingresa el total pedido:");
-		nuevaFila.append("totalPedido", teclado.nextLine());
+		nuevaFila.append("totalPedido", Integer.parseInt(teclado.nextLine()));
+
 		System.out.println("Ingresa el pedido:");
 		nuevaFila.append("pedido", teclado.nextLine());
 
-		new Document("$push", new Document("materiales",
-				new Document("$each", Arrays.asList(nuevaFila)).append("$sort", new Document("A3", 1))));
+		System.out.println("¿Estás seguro? (S/N)");
+		String confirmacion = teclado.nextLine();
 
-		System.out.println("Fila agregada correctamente.");
+		if (confirmacion.equalsIgnoreCase("S")) {
+
+			UpdateResult resultado = coleccion.updateOne(eq("obra", numeroObra),
+					new Document("$push", new Document("materiales", nuevaFila)));
+
+			System.out.println("Fila agregada correctamente.");
+
+		} else {
+			System.out.println("Operación cancelada.");
+		}
 	}
 
 	public static void eliminarObra(MongoCollection<Document> coleccion) {
@@ -386,9 +484,38 @@ public class Modelo {
 		System.out.println("Ingresa la referencia de la obra a eliminar:");
 		String numeroObra = teclado.nextLine();
 
-		coleccion.deleteOne(eq("obra", numeroObra));
+		boolean obraExiste = false;
+		MongoCursor<Document> cursor = coleccion.find(eq("obra", numeroObra)).iterator();
 
-		System.out.println("Obra eliminada correctamente.");
+		while (cursor.hasNext()) {
+			JSONObject jsonoOB = new JSONObject(cursor.next().toJson());
+			if (jsonoOB.getString("obra").equals(numeroObra)) {
+				obraExiste = true;
+				break;
+			}
+		}
+
+		if (obraExiste) {
+
+			System.out.println("¿Quieres eliminar la obra completa? Esta acción no se puede deshacer. (S/N)");
+			String confirmacion = teclado.nextLine();
+
+			if (confirmacion.equalsIgnoreCase("S")) {
+
+				System.out.println("Obra encontrada. Procediendo a eliminar...");
+				coleccion.deleteOne(eq("obra", numeroObra));
+
+				System.out.println("Obra eliminada correctamente.");
+
+			} else {
+				System.out.println("Operación cancelada. No se eliminó la obra.");
+
+			}
+
+		} else {
+			System.out.println("No se encontró la obra. Operación cancelada.");
+			return;
+		}
 
 	}
 
@@ -398,11 +525,30 @@ public class Modelo {
 		System.out.println("Ingresa el nombre del cliente:");
 		String cliente = teclado.nextLine();
 
-		MongoCursor<Document> cursor = coleccion.find(eq("cliente", cliente)).iterator();
-
+		MongoCursor<Document> cursor = coleccion.find().iterator();
+		System.out.println("===================== LISTADO NUMEROS REFERENCIAS ====================");
+		System.out.println("========================================================================");
 		while (cursor.hasNext()) {
 			Document doc = cursor.next();
-			System.out.println("Obra: " + doc.getString("obra"));
+			
+			if (doc.getString("cliente").startsWith(cliente)) {
+				System.out.println("Obra: " + doc.getString("obra"));
+				System.out.println("========================================================================");	
+			} else {
+				System.out.println("No existe ese cliente.");
+			}
+			
+		}
+	}
+
+	private static int parseEntero(String valor) {
+		try {
+			if (valor == null || valor.trim().isEmpty()) {
+				return 0;
+			}
+			return (int) Double.parseDouble(valor.replace(",", "."));
+		} catch (NumberFormatException e) {
+			return 0;
 		}
 	}
 
