@@ -3,4 +3,4 @@ añadir nuevos campos
 Mejorar los metodos para que sea mas optimo.
 verificar bien el codigo.
 Crear interfaz "al final del proyecyto"
-Uni el MVC con el proyecto
+Unir el MVC con el proyecto

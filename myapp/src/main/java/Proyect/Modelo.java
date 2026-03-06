@@ -168,7 +168,12 @@ public class Modelo {
 		System.out.println("6. Agregar fila a obra");
 		System.out.println("7. Eliminar obra completa");
 		System.out.println("8. Buscar obras por cliente");
-		System.out.println("9. Salir");
+		System.out.println("9. Bucar por referencia de material.");
+		System.out.println("10. Odenados por A3");
+		System.out.println("11. Estadisticas de obra.");
+		System.out.println("12. Mostrar Todas las obras resumidas.");
+		System.out.println("13. Cantidad de obras.");
+		System.out.println("14. Salir.");
 		System.out.println("==================================");
 		System.out.println("Ingrese el número de la opción deseada:");
 		int opcion = teclado.nextInt();
@@ -421,13 +426,11 @@ public class Modelo {
 	}
 
 	public static void agregarFila(MongoCollection<Document> coleccion) {
-
 		Scanner teclado = new Scanner(System.in);
 
 		System.out.println("Ingresa la referencia de obra:");
 		String numeroObra = teclado.nextLine();
 
-		// Buscamos directamente la obra
 		Document obra = coleccion.find(eq("obra", numeroObra)).first();
 
 		if (obra == null) {
@@ -435,12 +438,26 @@ public class Modelo {
 			return;
 		}
 
-		System.out.println("Obra encontrada. Procediendo a agregar fila...");
-
-		Document nuevaFila = new Document();
-
+		// --- VALIDACIÓN DE A3 ---
 		System.out.println("Ingresa el número de A3:");
-		nuevaFila.append("A3", Integer.parseInt(teclado.nextLine()));
+		int numeroA3 = Integer.parseInt(teclado.nextLine());
+
+		// Obtenemos la lista actual de materiales de la obra
+		List<Document> materiales = obra.getList("materiales", Document.class);
+
+		// Usamos tu método existeA3 (añadiendo control de nulos por si la lista está
+		// vacía)
+		if (materiales != null && existeA3(materiales, numeroA3)) {
+			System.out.println("====================================================");
+			System.out.println("   ERROR: EL NUMERO A3 YA EXISTE EN ESTA OBRA   "); // ¡Aquí puedes usar el centrado!
+			System.out.println("====================================================");
+			return; // Salimos del método
+		}
+		// ------------------------
+
+		System.out.println("Obra encontrada. Procediendo a agregar fila...");
+		Document nuevaFila = new Document();
+		nuevaFila.append("A3", numeroA3); // Ya lo tenemos validado
 
 		System.out.println("Ingresa la marca:");
 		nuevaFila.append("marca", teclado.nextLine());
@@ -467,15 +484,21 @@ public class Modelo {
 		String confirmacion = teclado.nextLine();
 
 		if (confirmacion.equalsIgnoreCase("S")) {
-
-			UpdateResult resultado = coleccion.updateOne(eq("obra", numeroObra),
-					new Document("$push", new Document("materiales", nuevaFila)));
-
+			coleccion.updateOne(eq("obra", numeroObra), new Document("$push", new Document("materiales", nuevaFila)));
 			System.out.println("Fila agregada correctamente.");
-
 		} else {
 			System.out.println("Operación cancelada.");
 		}
+	}
+
+	public static boolean existeA3(List<Document> materiales, int a3) {
+
+		for (Document m : materiales) {
+			if (m.getInteger("A3") == a3) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public static void eliminarObra(MongoCollection<Document> coleccion) {
@@ -530,14 +553,14 @@ public class Modelo {
 		System.out.println("========================================================================");
 		while (cursor.hasNext()) {
 			Document doc = cursor.next();
-			
+
 			if (doc.getString("cliente").startsWith(cliente)) {
 				System.out.println("Obra: " + doc.getString("obra"));
-				System.out.println("========================================================================");	
+				System.out.println("========================================================================");
 			} else {
 				System.out.println("No existe ese cliente.");
 			}
-			
+
 		}
 	}
 
@@ -552,6 +575,189 @@ public class Modelo {
 		}
 	}
 
+	public static void buscarPorReferencia(MongoCollection<Document> coleccion) {
+		Scanner teclado = new Scanner(System.in);
+		System.out.println("Ingresa la referencia del material: ");
+		String ref = teclado.nextLine();
+
+		boolean encontrado = false;
+		MongoCursor<Document> cursor = coleccion.find().iterator();
+
+		System.out.println("====================================================");
+		centrarTexto("MATERIALES POR REFERENCIA ");
+		System.out.println("====================================================");
+
+		while (cursor.hasNext()) {
+			JSONObject jsonO = new JSONObject(cursor.next().toJson());
+
+			String obra = jsonO.getString("obra");
+
+			JSONArray materiales = jsonO.getJSONArray("materiales");
+
+			for (int i = 0; i < materiales.length(); i++) {
+				JSONObject material = materiales.getJSONObject(i);
+
+				if (material.getString("referencia").equalsIgnoreCase(ref)) {
+					System.out.println("Obra: " + obra);
+					System.out.println("Marca: " + material.getString("marca"));
+					System.out.println("Descripción: " + material.getString("descripcion"));
+					System.out.println("====================================================");
+
+					encontrado = true;
+				}
+
+			}
+
+		}
+
+		if (!encontrado) {
+			centrarTexto("NO HAY MATERIALES CON ESA REFERENCIA.");
+			System.out.println("==================================");
+		}
+
+	}
+
+	public static void centrarTexto(String mensaje) {
+
+		int anchoConsola = 52; // El ancho de tu línea de "="
+
+		// Calculamos los espacios necesarios
+		int espacios = (anchoConsola - mensaje.length()) / 2;
+		String formato = "%" + espacios + "s%s%n";
+
+		System.out.printf(formato, "", mensaje);
+
+	}
+
+	public static void ordenarMaterialesPorA3(MongoCollection<Document> coleccion) {
+
+		Scanner teclado = new Scanner(System.in);
+		System.out.println("Ingresa la referencia de obra:");
+		String obraRef = teclado.nextLine();
+
+		Document obraDoc = coleccion.find(eq("obra", obraRef)).first();
+
+		if (obraDoc == null) {
+			System.out.println("===============================================================");
+			centrarTexto("La obra no existe.");
+			System.out.println("===============================================================");
+			return;
+		}
+
+		JSONObject jsonObra = new JSONObject(obraDoc.toJson());
+
+		JSONArray materiales = jsonObra.getJSONArray("materiales");
+
+		List<JSONObject> listaMateriales = new ArrayList<>();
+
+		for (int i = 0; i < materiales.length(); i++) {
+			listaMateriales.add(materiales.getJSONObject(i));
+		}
+
+		// Ordenar por A3
+		listaMateriales.sort((m1, m2) -> Integer.compare(m1.getInt("A3"), m2.getInt("A3")));
+
+		// FORMATO TABLA (igual que tu mostrarDatos)
+		String formatoTabla = "| %-6s | %-12s | %-18s | %-35s | %-10s | %-10s | %-10s | %-10s |%n";
+
+		System.out.println(
+				"------------------------------------------------------------------------------------------------------------------------------------------");
+		System.out.format(formatoTabla, "A3", "MARCA", "REFERENCIA", "DESCRIPCIÓN", "SALIDA", "ENTRADA", "TOTAL",
+				"PEDIDO");
+		System.out.println(
+				"------------------------------------------------------------------------------------------------------------------------------------------");
+
+		for (JSONObject m : listaMateriales) {
+
+			System.out.format(formatoTabla, m.optInt("A3"), m.optString("marca"), m.optString("referencia"),
+					cortarTexto(m.optString("descripcion"), 35), m.optInt("salidaUnidad"), m.optInt("entradaUnidad"),
+					m.optInt("totalPedido"), m.optString("pedido"));
+		}
+
+		System.out.println(
+				"------------------------------------------------------------------------------------------------------------------------------------------");
+	}
+
+	public static void estadisticasObra(MongoCollection<Document> coleccion) {
+		Scanner teclado = new Scanner(System.in);
+		System.out.println("Ingresa la referencia de obra: ");
+		String obraRef = teclado.nextLine();
+
+		Document obra = coleccion.find(eq("obra", obraRef)).first();
+		if (obra == null) {
+			System.out.println("===============================================================");
+			centrarTexto("La obra no existe.");
+			System.out.println("===============================================================");
+			return;
+		}
+
+		List<Document> materiales = (List<Document>) obra.get("materiales");
+
+		int totalMateriales = materiales.size();
+		int sumaPedidos = 0;
+
+		for (Document m : materiales) {
+			sumaPedidos += m.getInteger("totalPedido");
+
+		}
+
+		System.out.println("===========================================");
+		System.out.println("Total materiales: " + totalMateriales);
+		System.out.println("Total Pedido: ");
+		System.out.println("===========================================");
+
+	}
+
+	public static boolean existeA3(List<Document> materiales, String a3) {
+		return false;
+	}
+
+	public static void mostrarObraResumida(MongoCollection<Document> coleccion) {
+		System.out.println("=====================================================");
+		centrarTexto("LISTA DE OBRAS");
+		System.out.println("=====================================================");
+
+		// Definimos el ancho de las columnas para que coincidan con la línea de 53
+		// caracteres
+		// | 10 esp | 15 esp | 20 esp | + bordes y separadores = 53 aprox.
+		String formatoTabla = "| %-10s | %-15s | %-18s |%n";
+
+		System.out.format(formatoTabla, "OBRA", "CLIENTE", "PROYECTO");
+		System.out.println("=====================================================");
+
+		// 1. Verificamos si la colección está vacía antes de empezar
+		long totalObras = coleccion.countDocuments();
+
+		if (totalObras == 0) {
+			centrarTexto("NO HAY OBRAS REGISTRADAS");
+			System.out.println("=====================================================");
+			return; // Salimos de la función
+		}
+
+		// 2. Iteramos normalmente
+		try (MongoCursor<Document> cursor = coleccion.find().iterator()) {
+			while (cursor.hasNext()) {
+				Document doc = cursor.next();
+
+				// Usamos optString o comprobamos nulos para evitar errores
+				String obra = doc.getOrDefault("obra", "N/A").toString();
+				String cliente = doc.getOrDefault("cliente", "N/A").toString();
+				String proyecto = doc.getOrDefault("proyecto", "N/A").toString();
+
+				// Imprimimos todo en una sola línea para que parezca una tabla real
+				System.out.format(formatoTabla, obra, cliente, proyecto);
+			}
+		}
+
+		System.out.println("=====================================================");
+	}
+
+	public static void contarObras(MongoCollection<Document> coleccion) {
+
+	    long total = coleccion.countDocuments();
+	    System.out.println("Total de obras en la base de datos: " + total);
+	}
+	
 	public static void main(String[] args) throws Exception {
 		// TODO Auto-generated method stub
 		System.out.println("Conectando a MongoDB...");
@@ -594,12 +800,27 @@ public class Modelo {
 				buscarPorCliente(coleccion);
 				break;
 			case 9:
+				buscarPorReferencia(coleccion);
+				break;
+			case 10:
+				ordenarMaterialesPorA3(coleccion);
+				break;
+			case 11:
+				estadisticasObra(coleccion);
+				break;
+			case 12:
+				mostrarObraResumida(coleccion);
+				break;
+			case 13: 
+				contarObras(coleccion);
+				break;
+			case 14:
 				System.out.println("Saliendo...");
 				break;
 			default:
 				System.out.println("Opción no válida, intente nuevamente.");
 			}
-		} while (opcion != 9);
+		} while (opcion != 14);
 
 	}
 
