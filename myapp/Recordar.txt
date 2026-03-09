@@ -1,6 +1,6 @@
-Crear el si o n antes de eliminar y agregar fila
-añadir nuevos campos
-Mejorar los metodos para que sea mas optimo.
+Crear el si o n antes de eliminar y agregar fila ---
+añadir nuevos campos --- 
+Mejorar los metodos para que sea mas optimo. ---
 verificar bien el codigo.
 Crear interfaz "al final del proyecyto"
 Unir el MVC con el proyecto
