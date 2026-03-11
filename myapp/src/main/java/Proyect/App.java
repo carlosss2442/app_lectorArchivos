@@ -27,7 +27,7 @@ public class App extends Application {
         Image icon = new Image(getClass().getResourceAsStream("/logo.jpg"));
         stage.getIcons().add(icon);
         stage.show();
-        
+     // ebced5431fa7ca4b25f6ec99f926adefda63d274d6aad8153b7a84f080716cc3	   
     }
 
     @Override

@@ -1,7 +1,6 @@
 package Proyect;
 
 import java.util.ArrayList;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,9 +15,14 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import java.io.File;
 
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFColor;
+import org.apache.poi.xssf.usermodel.XSSFFont;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.text.SimpleDateFormat;
 
 import com.mongodb.client.MongoClient;
@@ -30,9 +34,350 @@ import javafx.stage.FileChooser;
 
 import com.mongodb.client.MongoCursor;
 import static com.mongodb.client.model.Filters.*;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.*;
 
 public class Modelo {
 
+	private static final int TOTAL_COLS = 12; // A..L
+
+    private static final int[] COL_WIDTHS = {
+        8,   // A  A3
+        14,  // B  MARCA
+        16,  // C  REFERENCIA
+        36,  // D  DESCRIPCIÓN
+        13,  // E  SALIDA UNIDAD
+        13,  // F  SERVIR UNIDAD
+        11,  // G  VALIDACIÓN
+        11,  // H  PREPARADO
+        8,   // I  FALTA
+        15,  // J  PEDIDO COMPLETO
+        17,  // K  FECHA PEDIDO
+        26,  // L  OBSERVACIONES
+    };
+
+    private static final String[] COL_TITLES = {
+        "A3", "MARCA", "REFERENCIA", "DESCRIPCIÓN",
+        "SALIDA\nUNIDAD", "SERVIR\nUNIDAD", "VALIDACIÓN",
+        "PREPARADO", "FALTA", "PEDIDO\nCOMPLETO",
+        "FECHA PEDIDO", "OBSERVACIONES"
+    };
+
+    // Colores
+    private static final byte[] AZUL_OSCURO  = rgb1("1F4E79");
+    private static final byte[] AZUL_MEDIO   = rgb1("2E75B6");
+    private static final byte[] AZUL_PALIDO  = rgb1("DEEAF1");
+    private static final byte[] AZUL_CABMETA = rgb1("BDD7EE");
+    private static final byte[] NARANJA      = rgb1("F4B942");
+    private static final byte[] AMARILLO_PAL = rgb1("FFFDE7");
+    private static final byte[] BLANCO       = rgb1("FFFFFF");
+    private static final byte[] ROJO         = rgb1("C0392B");
+    private static final byte[] GRIS_BORDE   = rgb1("B8CCE4");
+    private static final byte[] NEGRO        = rgb1("1F1F1F");
+
+    public static void exportar(Document obra, File destino) throws Exception {
+
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            XSSFSheet ws = wb.createSheet("Materiales");
+            ws.setDefaultRowHeightInPoints(16);
+            ws.getPrintSetup().setLandscape(true);
+            ws.getPrintSetup().setPaperSize(PrintSetup.A4_PAPERSIZE);
+            ws.setFitToPage(true);
+
+            for (int i = 0; i < COL_WIDTHS.length; i++) {
+                ws.setColumnWidth(i, COL_WIDTHS[i] * 256);
+            }
+
+            XSSFCellStyle sTitulo    = mkTitulo(wb);
+            XSSFCellStyle sMetaLabel = mkMetaLabel(wb);
+            XSSFCellStyle sMetaVal   = mkMetaVal(wb);
+            XSSFCellStyle sMetaLabelR= mkMetaLabelRight(wb);
+            XSSFCellStyle sColHead   = mkColHead(wb, false);
+            XSSFCellStyle sColHeadLk = mkColHead(wb, true);
+            XSSFCellStyle sDataN     = mkData(wb, false, false);
+            XSSFCellStyle sDataA     = mkData(wb, true,  false);
+            XSSFCellStyle sDataLkN   = mkData(wb, false, true);
+            XSSFCellStyle sDataLkA   = mkData(wb, true,  true);
+            XSSFCellStyle sCkN       = mkCheckmark(wb, false);
+            XSSFCellStyle sCkA       = mkCheckmark(wb, true);
+            XSSFCellStyle sTotal     = mkTotal(wb);
+            XSSFCellStyle sTotalNum  = mkTotalNum(wb);
+
+            int r = 0;
+
+            ws.createRow(r++).setHeightInPoints(6);
+
+            XSSFRow rowTit = ws.createRow(r++);
+            rowTit.setHeightInPoints(34);
+            cell(rowTit, 0, "LISTADO MATERIALES CE", sTitulo);
+            merge(ws, r - 1, 0, TOTAL_COLS - 1);
+
+            ws.createRow(r++).setHeightInPoints(8);
+
+            // Ref. Obra | Responsable
+            {
+                XSSFRow row = ws.createRow(r++);
+                row.setHeightInPoints(20);
+                cell(row, 0, "Ref. Obra:",    sMetaLabel);
+                cell(row, 1, s(obra, "obra"), sMetaVal);
+                merge(ws, r - 1, 1, 6);
+                cell(row, 7, "",                     sMetaVal);
+                cell(row, 8, "Responsable:",         sMetaLabelR);
+                cell(row, 9, s(obra, "responsable"), sMetaVal);
+                merge(ws, r - 1, 9, TOTAL_COLS - 1);
+            }
+            // Cliente | Impresión
+            {
+                XSSFRow row = ws.createRow(r++);
+                row.setHeightInPoints(20);
+                cell(row, 0, "Cliente:",         sMetaLabel);
+                cell(row, 1, s(obra, "cliente"), sMetaVal);
+                merge(ws, r - 1, 1, 6);
+                cell(row, 7, "",                   sMetaVal);
+                cell(row, 8, "Impresión:",         sMetaLabelR);
+                cell(row, 9, s(obra, "impresion"), sMetaVal);
+                merge(ws, r - 1, 9, TOTAL_COLS - 1);
+            }
+            // Proyecto | Entrega
+            {
+                XSSFRow row = ws.createRow(r++);
+                row.setHeightInPoints(20);
+                cell(row, 0, "Proyecto:",         sMetaLabel);
+                cell(row, 1, s(obra, "proyecto"), sMetaVal);
+                merge(ws, r - 1, 1, 6);
+                cell(row, 7, "",                 sMetaVal);
+                cell(row, 8, "Entrega:",         sMetaLabelR);
+                cell(row, 9, s(obra, "entrega"), sMetaVal);
+                merge(ws, r - 1, 9, TOTAL_COLS - 1);
+            }
+            // Título (span completo)
+            {
+                XSSFRow row = ws.createRow(r++);
+                row.setHeightInPoints(20);
+                cell(row, 0, "Título:",         sMetaLabel);
+                cell(row, 1, s(obra, "titulo"), sMetaVal);
+                merge(ws, r - 1, 1, TOTAL_COLS - 1);
+            }
+
+            ws.createRow(r++).setHeightInPoints(6);
+
+            XSSFRow rowHead = ws.createRow(r++);
+            rowHead.setHeightInPoints(28);
+            for (int c = 0; c < COL_TITLES.length; c++) {
+                boolean locked = (c == 6 || c == 8);
+                cell(rowHead, c, COL_TITLES[c], locked ? sColHeadLk : sColHead);
+            }
+
+            List<Document> mats = obra.getList("materiales", Document.class);
+            int firstDataRow = r + 1;
+
+            if (mats != null) {
+                for (int i = 0; i < mats.size(); i++) {
+                    Document m   = mats.get(i);
+                    boolean  alt = (i % 2 != 0);
+
+                    XSSFRow row = ws.createRow(r++);
+                    row.setHeightInPoints(16);
+
+                    cellN(row, 0,  m.getInteger("A3", 0),                       alt ? sDataA   : sDataN);
+                    cell (row, 1,  s(m, "marca"),                               alt ? sDataA   : sDataN);
+                    cell (row, 2,  s(m, "referencia"),                          alt ? sDataA   : sDataN);
+                    cell (row, 3,  s(m, "descripcion"),                         alt ? sDataA   : sDataN);
+                    cellN(row, 4,  m.getInteger("salidaUnidad", 0),             alt ? sDataA   : sDataN);
+                    cellN(row, 5,  m.getInteger("servirUnidad", 0),             alt ? sDataA   : sDataN);
+                    cell (row, 6,  ck(s(m, "validacion")),                      alt ? sCkA     : sCkN);
+                    cellN(row, 7,  prepInt(m.getOrDefault("preparado", "0")),   alt ? sDataA   : sDataN);
+                    cellN(row, 8,  m.getInteger("falta", 0),                    alt ? sDataLkA : sDataLkN);
+                    cell (row, 9,  ck(s(m, "pedidoCompleto")),                  alt ? sCkA     : sCkN);
+                    cell (row, 10, s(m, "fechaPedido"),                         alt ? sDataA   : sDataN);
+                    cell (row, 11, s(m, "observaciones"),                       alt ? sDataA   : sDataN);
+                }
+            }
+
+            int lastDataRow = r;
+
+            XSSFRow rowTot = ws.createRow(r++);
+            rowTot.setHeightInPoints(20);
+            cell(rowTot, 0, "TOTAL", sTotal);
+            merge(ws, r - 1, 0, 3);
+
+            for (int c : new int[]{ 4, 5, 7, 8 }) {
+                String col = String.valueOf((char)('A' + c));
+                XSSFCell fc = rowTot.createCell(c);
+                fc.setCellFormula("SUM(" + col + firstDataRow + ":" + col + lastDataRow + ")");
+                fc.setCellStyle(sTotalNum);
+            }
+            for (int c = 0; c < TOTAL_COLS; c++) {
+                if (rowTot.getCell(c) == null) cell(rowTot, c, "", sTotal);
+            }
+
+            try (FileOutputStream fos = new FileOutputStream(destino)) {
+                wb.write(fos);
+            }
+        }
+    }
+
+    private static void cell(XSSFRow row, int col, String val, XSSFCellStyle st) {
+        XSSFCell c = row.createCell(col);
+        c.setCellValue(val != null ? val : "");
+        c.setCellStyle(st);
+    }
+
+    private static void cellN(XSSFRow row, int col, int val, XSSFCellStyle st) {
+        XSSFCell c = row.createCell(col);
+        c.setCellValue(val);
+        c.setCellStyle(st);
+    }
+
+    private static void merge(XSSFSheet ws, int row, int c1, int c2) {
+        if (c2 > c1) ws.addMergedRegion(new CellRangeAddress(row, row, c1, c2));
+    }
+
+    private static String s(Document d, String key) {
+        Object v = d.get(key);
+        return v != null ? v.toString() : "";
+    }
+
+    private static String ck(String val) {
+        return "✔".equals(val) ? "✔" : "✘";
+    }
+
+    private static int prepInt(Object val) {
+        try { return (int) Double.parseDouble(val.toString().replace(",", ".")); }
+        catch (Exception e) { return 0; }
+    }
+
+    private static XSSFCellStyle mkTitulo(XSSFWorkbook wb) {
+        XSSFCellStyle s = wb.createCellStyle();
+        fill(s, AZUL_OSCURO);
+        XSSFFont f = wb.createFont();
+        f.setBold(true); f.setFontHeightInPoints((short) 20);
+        fontColor(f, BLANCO);
+        s.setFont(f);
+        s.setAlignment(HorizontalAlignment.CENTER);
+        s.setVerticalAlignment(VerticalAlignment.CENTER);
+        return s;
+    }
+
+    private static XSSFCellStyle mkMetaLabel(XSSFWorkbook wb) {
+        XSSFCellStyle s = wb.createCellStyle();
+        fill(s, AZUL_CABMETA);
+        XSSFFont f = wb.createFont();
+        f.setBold(true); f.setFontHeightInPoints((short) 11);
+        s.setFont(f);
+        s.setAlignment(HorizontalAlignment.RIGHT);
+        s.setVerticalAlignment(VerticalAlignment.CENTER);
+        border(s, BorderStyle.THIN, GRIS_BORDE);
+        return s;
+    }
+
+    private static XSSFCellStyle mkMetaLabelRight(XSSFWorkbook wb) {
+        XSSFCellStyle s = mkMetaLabel(wb);
+        s.setAlignment(HorizontalAlignment.LEFT);
+        return s;
+    }
+
+    private static XSSFCellStyle mkMetaVal(XSSFWorkbook wb) {
+        XSSFCellStyle s = wb.createCellStyle();
+        fill(s, rgb1("EBF3FB"));
+        XSSFFont f = wb.createFont();
+        f.setBold(true); f.setFontHeightInPoints((short) 12);
+        s.setFont(f);
+        s.setAlignment(HorizontalAlignment.LEFT);
+        s.setVerticalAlignment(VerticalAlignment.CENTER);
+        border(s, BorderStyle.THIN, GRIS_BORDE);
+        return s;
+    }
+
+    private static XSSFCellStyle mkColHead(XSSFWorkbook wb, boolean locked) {
+        XSSFCellStyle s = wb.createCellStyle();
+        fill(s, locked ? NARANJA : AZUL_MEDIO);
+        XSSFFont f = wb.createFont();
+        f.setBold(true); f.setFontHeightInPoints((short) 9);
+        fontColor(f, locked ? NEGRO : BLANCO);
+        s.setFont(f);
+        s.setAlignment(HorizontalAlignment.CENTER);
+        s.setVerticalAlignment(VerticalAlignment.CENTER);
+        border(s, BorderStyle.MEDIUM, rgb1("1F4E79"));
+        s.setWrapText(true);
+        return s;
+    }
+
+    private static XSSFCellStyle mkData(XSSFWorkbook wb, boolean alt, boolean locked) {
+        XSSFCellStyle s = wb.createCellStyle();
+        if (locked) {
+            fill(s, alt ? rgb1("FFF4CE") : AMARILLO_PAL);
+            XSSFFont f = wb.createFont();
+            f.setBold(true); f.setFontHeightInPoints((short) 10);
+            fontColor(f, ROJO);
+            s.setFont(f);
+        } else {
+            fill(s, alt ? AZUL_PALIDO : BLANCO);
+            XSSFFont f = wb.createFont();
+            f.setFontHeightInPoints((short) 10);
+            s.setFont(f);
+        }
+        s.setAlignment(HorizontalAlignment.CENTER);
+        s.setVerticalAlignment(VerticalAlignment.CENTER);
+        border(s, BorderStyle.THIN, GRIS_BORDE);
+        return s;
+    }
+
+    private static XSSFCellStyle mkCheckmark(XSSFWorkbook wb, boolean alt) {
+        XSSFCellStyle s = mkData(wb, alt, false);
+        XSSFFont f = wb.createFont();
+        f.setFontHeightInPoints((short) 12);
+        s.setFont(f);
+        s.setAlignment(HorizontalAlignment.CENTER);
+        return s;
+    }
+
+    private static XSSFCellStyle mkTotal(XSSFWorkbook wb) {
+        XSSFCellStyle s = wb.createCellStyle();
+        fill(s, AZUL_OSCURO);
+        XSSFFont f = wb.createFont();
+        f.setBold(true); f.setFontHeightInPoints((short) 11);
+        fontColor(f, BLANCO);
+        s.setFont(f);
+        s.setAlignment(HorizontalAlignment.CENTER);
+        s.setVerticalAlignment(VerticalAlignment.CENTER);
+        border(s, BorderStyle.MEDIUM, rgb1("1F4E79"));
+        return s;
+    }
+
+    private static XSSFCellStyle mkTotalNum(XSSFWorkbook wb) {
+        XSSFCellStyle s = mkTotal(wb);
+        s.setDataFormat(wb.createDataFormat().getFormat("#,##0"));
+        return s;
+    }
+
+    private static void fill(XSSFCellStyle s, byte[] color) {
+        s.setFillForegroundColor(new XSSFColor(color, null));
+        s.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+    }
+
+    private static void fontColor(XSSFFont f, byte[] color) {
+        f.setColor(new XSSFColor(color, null));
+    }
+
+    private static void border(XSSFCellStyle s, BorderStyle style, byte[] color) {
+        XSSFColor c = new XSSFColor(color, null);
+        s.setBorderTop(style);    s.setTopBorderColor(c);
+        s.setBorderBottom(style); s.setBottomBorderColor(c);
+        s.setBorderLeft(style);   s.setLeftBorderColor(c);
+        s.setBorderRight(style);  s.setRightBorderColor(c);
+    }
+
+    private static byte[] rgb1(String hex) {
+        return new byte[]{
+            (byte) Integer.parseInt(hex.substring(0, 2), 16),
+            (byte) Integer.parseInt(hex.substring(2, 4), 16),
+            (byte) Integer.parseInt(hex.substring(4, 6), 16)
+        };
+    }
+
+	// ─────────────────────────────────────────────────────────────────────────
 	public static String obtenerValorCelda(Cell celda) {
 		if (celda == null)
 			return "";
@@ -48,6 +393,10 @@ public class Modelo {
 			}
 		}
 		return formatter.formatCellValue(celda).trim();
+	}
+
+	private static byte[] rgb(String string) {
+		return null;
 	}
 
 	private static String buscarValorSiguiente(Row row, int desdeCol) {
@@ -131,37 +480,22 @@ public class Modelo {
 					if (val.contains("ENTREGA") && !documentoPrincipal.containsKey("entrega"))
 						documentoPrincipal.put("entrega", buscarValorSiguiente(row, i));
 
-					// Detectar fila de encabezados de la tabla
 					if (val.equals("A3")) {
 						for (int j = 0; j < row.getLastCellNum(); j++) {
 							String enc = obtenerValorCelda(row.getCell(j)).toUpperCase().trim();
-							if (enc.isEmpty())
-								continue;
-
-							if (enc.equals("A3"))
-								colMap.put("id", j);
-							if (enc.contains("MARCA"))
-								colMap.put("marca", j);
-							if (enc.contains("REFERENCIA"))
-								colMap.put("referencia", j);
-							if (enc.contains("DESCRIP"))
-								colMap.put("descripcion", j);
-							if (enc.contains("SALIDA"))
-								colMap.put("salidaUnidad", j);
-							if (enc.contains("SERVIR"))
-								colMap.put("servirUnidad", j);
-							if (enc.contains("VALID"))
-								colMap.put("validacion", j);
-							if (enc.contains("PREPAR"))
-								colMap.put("preparado", j);
-							if (enc.contains("FALTA"))
-								colMap.put("falta", j);
-							if (enc.contains("PEDIDO COMPLETO") || enc.equals("PEDIDO"))
-								colMap.put("pedidoCompleto", j);
-							if (enc.contains("FECHA PEDIDO"))
-								colMap.put("fechaPedido", j);
-							if (enc.contains("OBSERV"))
-								colMap.put("observaciones", j);
+							if (enc.isEmpty()) continue;
+							if (enc.equals("A3"))                            colMap.put("id",            j);
+							if (enc.contains("MARCA"))                       colMap.put("marca",         j);
+							if (enc.contains("REFERENCIA"))                  colMap.put("referencia",    j);
+							if (enc.contains("DESCRIP"))                     colMap.put("descripcion",   j);
+							if (enc.contains("SALIDA"))                      colMap.put("salidaUnidad",  j);
+							if (enc.contains("SERVIR"))                      colMap.put("servirUnidad",  j);
+							if (enc.contains("VALID"))                       colMap.put("validacion",    j);
+							if (enc.contains("PREPAR"))                      colMap.put("preparado",     j);
+							if (enc.contains("FALTA"))                       colMap.put("falta",         j);
+							if (enc.contains("PEDIDO COMPLETO") || enc.equals("PEDIDO")) colMap.put("pedidoCompleto", j);
+							if (enc.contains("FECHA PEDIDO"))                colMap.put("fechaPedido",   j);
+							if (enc.contains("OBSERV"))                      colMap.put("observaciones", j);
 						}
 						empezarMateriales = true;
 						break;
@@ -181,17 +515,47 @@ public class Modelo {
 					continue;
 				}
 
-				Document material = new Document().append("A3", idA3).append("marca", getCelda(row, colMap, "marca"))
-						.append("referencia", getCelda(row, colMap, "referencia"))
-						.append("descripcion", getCelda(row, colMap, "descripcion"))
-						.append("salidaUnidad", parseEntero(getCelda(row, colMap, "salidaUnidad")))
-						.append("servirUnidad", parseEntero(getCelda(row, colMap, "servirUnidad")))
-						.append("validacion", getCelda(row, colMap, "validacion"))
-						.append("preparado", getCelda(row, colMap, "preparado"))
-						.append("falta", parseEntero(getCelda(row, colMap, "falta")))
-						.append("pedidoCompleto", getCelda(row, colMap, "pedidoCompleto"))
-						.append("fechaPedido", getCelda(row, colMap, "fechaPedido"))
-						.append("observaciones", getCelda(row, colMap, "observaciones"));
+				// ── Leer salida para calcular falta si no viene en el Excel ──────────────
+				int salidaVal = parseEntero(getCelda(row, colMap, "salidaUnidad"));
+
+				// ── Validación: vacío o columna inexistente → "✘" ────────────────────────
+				String validacionRaw = getCelda(row, colMap, "validacion");
+				String validacionVal = validacionRaw.isEmpty() ? "✘"
+						: (validacionRaw.equals("✔")
+								|| validacionRaw.equalsIgnoreCase("SI")
+								|| validacionRaw.equalsIgnoreCase("S")
+								|| validacionRaw.equals("1") ? "✔" : "✘");
+
+				// ── Pedido Completo: mismo criterio ──────────────────────────────────────
+				String pedidoRaw = getCelda(row, colMap, "pedidoCompleto");
+				String pedidoVal = pedidoRaw.isEmpty() ? "✘"
+						: (pedidoRaw.equals("✔")
+								|| pedidoRaw.equalsIgnoreCase("SI")
+								|| pedidoRaw.equalsIgnoreCase("S")
+								|| pedidoRaw.equals("1") ? "✔" : "✘");
+
+				// ── Preparado: vacío → 0 ─────────────────────────────────────────────────
+				int preparadoVal = parseEntero(getCelda(row, colMap, "preparado"));
+
+				// ── Falta: si viene en el Excel la usamos; si no → salida - preparado ────
+				String faltaRaw = getCelda(row, colMap, "falta");
+				int faltaVal = faltaRaw.isEmpty()
+						? Math.max(0, salidaVal - preparadoVal)
+						: parseEntero(faltaRaw);
+
+				Document material = new Document()
+						.append("A3",             idA3)
+						.append("marca",          getCelda(row, colMap, "marca"))
+						.append("referencia",     getCelda(row, colMap, "referencia"))
+						.append("descripcion",    getCelda(row, colMap, "descripcion"))
+						.append("salidaUnidad",   salidaVal)
+						.append("servirUnidad",   parseEntero(getCelda(row, colMap, "servirUnidad")))
+						.append("validacion",     validacionVal)   // ✔ o ✘ — nunca vacío
+						.append("preparado",      preparadoVal)
+						.append("falta",          faltaVal)        // calculado si falta la columna
+						.append("pedidoCompleto", pedidoVal)       // ✔ o ✘ — nunca vacío
+						.append("fechaPedido",    getCelda(row, colMap, "fechaPedido"))
+						.append("observaciones",  getCelda(row, colMap, "observaciones"));
 
 				listaMateriales.add(material);
 			}
@@ -273,7 +637,6 @@ public class Modelo {
 					"ENTREGA:", jsonO.optString("entrega", "N/A"));
 			System.out.println("-".repeat(180));
 
-			// Tabla con todas las columnas nuevas
 			String fmt = "| %-6s | %-12s | %-15s | %-30s | %-6s | %-6s | %-10s | %-10s | %-5s | %-15s | %-12s | %-15s |%n";
 			System.out.format(fmt, "A3", "MARCA", "REFERENCIA", "DESCRIPCIÓN", "SALIDA", "SERVIR", "VALIDACIÓN",
 					"PREPARADO", "FALTA", "PEDIDO COMPLETO", "FECHA PEDIDO", "OBSERVACIONES");
@@ -293,22 +656,17 @@ public class Modelo {
 	}
 
 	private static String cortarTexto(String texto, int largo) {
-		if (texto == null)
-			return "";
+		if (texto == null) return "";
 		return texto.length() <= largo ? texto : texto.substring(0, largo - 3) + "...";
 	}
 
 	public static void actualizarColumna(MongoCollection<Document> coleccion) {
 		Scanner teclado = new Scanner(System.in);
-
 		System.out.println("Ingresa la referencia de obra que deseas actualizar:");
 		String numeroObra = teclado.nextLine();
 
 		Document obra = coleccion.find(eq("obra", numeroObra)).first();
-		if (obra == null) {
-			System.out.println("La obra no existe.");
-			return;
-		}
+		if (obra == null) { System.out.println("La obra no existe."); return; }
 
 		System.out.println("Ingresa el número de A3 que deseas editar:");
 		int numeroA3 = teclado.nextInt();
@@ -316,10 +674,7 @@ public class Modelo {
 
 		List<Document> materiales = (List<Document>) obra.get("materiales");
 		boolean encontrado = materiales.stream().anyMatch(m -> m.getInteger("A3").equals(numeroA3));
-		if (!encontrado) {
-			System.out.println("El número A3 no existe en esa obra.");
-			return;
-		}
+		if (!encontrado) { System.out.println("El número A3 no existe en esa obra."); return; }
 
 		System.out.println("¿Qué campo deseas actualizar?");
 		System.out.println("1. Marca         2. Referencia    3. Descripción");
@@ -333,62 +688,42 @@ public class Modelo {
 		String[] campos = { "", "marca", "referencia", "descripcion", "salidaUnidad", "servirUnidad", "validacion",
 				"preparado", "falta", "pedidoCompleto", "fechaPedido", "observaciones" };
 
-		if (opcion < 1 || opcion > 11) {
-			System.out.println("Volviendo...");
-			return;
-		}
+		if (opcion < 1 || opcion > 11) { System.out.println("Volviendo..."); return; }
 
 		System.out.println("Ingresa el nuevo valor:");
 		String nuevoValor = teclado.nextLine();
 
 		System.out.println("¿Estás seguro? (S/N)");
-		if (!teclado.nextLine().equalsIgnoreCase("S")) {
-			System.out.println("Operación cancelada.");
-			return;
-		}
+		if (!teclado.nextLine().equalsIgnoreCase("S")) { System.out.println("Operación cancelada."); return; }
 
-		// ── Fecha actual formateada ───────────────────────────────────────────────
 		String fechaHoy = new SimpleDateFormat("dd/MM/yyyy HH:mm").format(new Date());
-
-		// ── Actualizar campo elegido + fechaPedido en una sola operación ──────────
 		Document setFields = new Document("materiales.$." + campos[opcion], nuevoValor)
 				.append("materiales.$.fechaPedido", fechaHoy);
-
 		coleccion.updateOne(and(eq("obra", numeroObra), eq("materiales.A3", numeroA3)),
 				new Document("$set", setFields));
 
-		// ── Si se actualizó PREPARADO, recalcular FALTA automáticamente ──────────
 		if (opcion == 7) {
 			Document obraActualizada = coleccion.find(eq("obra", numeroObra)).first();
 			List<Document> matsActualizados = (List<Document>) obraActualizada.get("materiales");
-
 			for (Document m : matsActualizados) {
 				if (m.getInteger("A3").equals(numeroA3)) {
 					int salida = m.getInteger("salidaUnidad", 0);
 					int preparado = 0;
-
 					Object prepObj = m.get("preparado");
 					if (prepObj != null) {
-						try {
-							preparado = (int) Double.parseDouble(prepObj.toString());
-						} catch (NumberFormatException ignored) {
-						}
+						try { preparado = (int) Double.parseDouble(prepObj.toString()); }
+						catch (NumberFormatException ignored) {}
 					}
-
 					int falta = Math.max(0, salida - preparado);
-
 					coleccion.updateOne(and(eq("obra", numeroObra), eq("materiales.A3", numeroA3)),
 							new Document("$set", new Document("materiales.$.falta", falta)));
-
-					System.out.println("✅ Preparado actualizado → Falta calculado: " + falta + " (" + salida
-							+ " salida - " + preparado + " preparado)");
+					System.out.println("✅ Preparado actualizado → Falta calculado: " + falta);
 					break;
 				}
 			}
 		} else {
 			System.out.println("✅ Campo actualizado correctamente.");
 		}
-
 		System.out.println("📅 Fecha de pedido registrada: " + fechaHoy);
 	}
 
@@ -396,24 +731,14 @@ public class Modelo {
 		Scanner teclado = new Scanner(System.in);
 		System.out.println("Ingresa la referencia de obra:");
 		String numeroObra = teclado.nextLine();
-
 		Document obra = coleccion.find(eq("obra", numeroObra)).first();
-		if (obra == null) {
-			System.out.println("La obra no existe.");
-			return;
-		}
-
+		if (obra == null) { System.out.println("La obra no existe."); return; }
 		System.out.println("Ingresa el número de A3 a eliminar:");
 		int numeroA3 = teclado.nextInt();
 		teclado.nextLine();
-
 		List<Document> materiales = (List<Document>) obra.get("materiales");
 		boolean encontrado = materiales.stream().anyMatch(m -> m.getInteger("A3").equals(numeroA3));
-		if (!encontrado) {
-			System.out.println("El número A3 no existe.");
-			return;
-		}
-
+		if (!encontrado) { System.out.println("El número A3 no existe."); return; }
 		System.out.println("¿Estás seguro? (S/N)");
 		if (teclado.nextLine().equalsIgnoreCase("S")) {
 			coleccion.updateOne(eq("obra", numeroObra),
@@ -428,47 +753,27 @@ public class Modelo {
 		Scanner teclado = new Scanner(System.in);
 		System.out.println("Ingresa la referencia de obra:");
 		String numeroObra = teclado.nextLine();
-
 		Document obra = coleccion.find(eq("obra", numeroObra)).first();
-		if (obra == null) {
-			System.out.println("No se encontró la obra.");
-			return;
-		}
-
+		if (obra == null) { System.out.println("No se encontró la obra."); return; }
 		System.out.println("Ingresa el número de A3:");
 		int numeroA3 = Integer.parseInt(teclado.nextLine());
-
 		List<Document> materiales = obra.getList("materiales", Document.class);
 		if (materiales != null && existeA3(materiales, numeroA3)) {
 			System.out.println("ERROR: El número A3 ya existe en esta obra.");
 			return;
 		}
-
 		Document nuevaFila = new Document().append("A3", numeroA3);
-
-		System.out.print("Marca: ");
-		nuevaFila.append("marca", teclado.nextLine());
-		System.out.print("Referencia: ");
-		nuevaFila.append("referencia", teclado.nextLine());
-		System.out.print("Descripción: ");
-		nuevaFila.append("descripcion", teclado.nextLine());
-		System.out.print("Salida unidad: ");
-		nuevaFila.append("salidaUnidad", parseEntero(teclado.nextLine()));
-		System.out.print("Servir unidad: ");
-		nuevaFila.append("servirUnidad", parseEntero(teclado.nextLine()));
-		System.out.print("Validación: ");
-		nuevaFila.append("validacion", teclado.nextLine());
-		System.out.print("Preparado: ");
-		nuevaFila.append("preparado", teclado.nextLine());
-		System.out.print("Falta: ");
-		nuevaFila.append("falta", parseEntero(teclado.nextLine()));
-		System.out.print("Pedido completo: ");
-		nuevaFila.append("pedidoCompleto", teclado.nextLine());
-		System.out.print("Fecha pedido: ");
-		nuevaFila.append("fechaPedido", teclado.nextLine());
-		System.out.print("Observaciones: ");
-		nuevaFila.append("observaciones", teclado.nextLine());
-
+		System.out.print("Marca: ");          nuevaFila.append("marca",         teclado.nextLine());
+		System.out.print("Referencia: ");     nuevaFila.append("referencia",    teclado.nextLine());
+		System.out.print("Descripción: ");    nuevaFila.append("descripcion",   teclado.nextLine());
+		System.out.print("Salida unidad: ");  nuevaFila.append("salidaUnidad",  parseEntero(teclado.nextLine()));
+		System.out.print("Servir unidad: ");  nuevaFila.append("servirUnidad",  parseEntero(teclado.nextLine()));
+		System.out.print("Validación: ");     nuevaFila.append("validacion",    teclado.nextLine());
+		System.out.print("Preparado: ");      nuevaFila.append("preparado",     teclado.nextLine());
+		System.out.print("Falta: ");          nuevaFila.append("falta",         parseEntero(teclado.nextLine()));
+		System.out.print("Pedido completo: ");nuevaFila.append("pedidoCompleto",teclado.nextLine());
+		System.out.print("Fecha pedido: ");   nuevaFila.append("fechaPedido",   teclado.nextLine());
+		System.out.print("Observaciones: ");  nuevaFila.append("observaciones", teclado.nextLine());
 		System.out.println("¿Estás seguro? (S/N)");
 		if (teclado.nextLine().equalsIgnoreCase("S")) {
 			coleccion.updateOne(eq("obra", numeroObra), new Document("$push", new Document("materiales", nuevaFila)));
@@ -480,8 +785,7 @@ public class Modelo {
 
 	public static boolean existeA3(List<Document> materiales, int a3) {
 		for (Document m : materiales)
-			if (m.getInteger("A3") == a3)
-				return true;
+			if (m.getInteger("A3") == a3) return true;
 		return false;
 	}
 
@@ -493,13 +797,8 @@ public class Modelo {
 		Scanner teclado = new Scanner(System.in);
 		System.out.println("Ingresa la referencia de la obra a eliminar:");
 		String numeroObra = teclado.nextLine();
-
 		Document obra = coleccion.find(eq("obra", numeroObra)).first();
-		if (obra == null) {
-			System.out.println("No se encontró la obra.");
-			return;
-		}
-
+		if (obra == null) { System.out.println("No se encontró la obra."); return; }
 		System.out.println("¿Quieres eliminar la obra completa? Esta acción no se puede deshacer. (S/N)");
 		if (teclado.nextLine().equalsIgnoreCase("S")) {
 			coleccion.deleteOne(eq("obra", numeroObra));
@@ -513,7 +812,6 @@ public class Modelo {
 		Scanner teclado = new Scanner(System.in);
 		System.out.println("Ingresa el nombre del cliente:");
 		String cliente = teclado.nextLine();
-
 		boolean encontrado = false;
 		System.out.println("=".repeat(70));
 		try (MongoCursor<Document> cursor = coleccion.find().iterator()) {
@@ -526,8 +824,7 @@ public class Modelo {
 				}
 			}
 		}
-		if (!encontrado)
-			System.out.println("No existe ese cliente.");
+		if (!encontrado) System.out.println("No existe ese cliente.");
 		System.out.println("=".repeat(70));
 	}
 
@@ -535,12 +832,10 @@ public class Modelo {
 		Scanner teclado = new Scanner(System.in);
 		System.out.println("Ingresa la referencia del material: ");
 		String ref = teclado.nextLine();
-
 		boolean encontrado = false;
 		System.out.println("=".repeat(52));
 		centrarTexto("MATERIALES POR REFERENCIA");
 		System.out.println("=".repeat(52));
-
 		try (MongoCursor<Document> cursor = coleccion.find().iterator()) {
 			while (cursor.hasNext()) {
 				JSONObject jsonO = new JSONObject(cursor.next().toJson());
@@ -558,27 +853,19 @@ public class Modelo {
 				}
 			}
 		}
-		if (!encontrado)
-			centrarTexto("NO HAY MATERIALES CON ESA REFERENCIA.");
+		if (!encontrado) centrarTexto("NO HAY MATERIALES CON ESA REFERENCIA.");
 	}
 
 	public static void ordenarMaterialesPorA3(MongoCollection<Document> coleccion) {
 		Scanner teclado = new Scanner(System.in);
 		System.out.println("Ingresa la referencia de obra:");
 		String obraRef = teclado.nextLine();
-
 		Document obraDoc = coleccion.find(eq("obra", obraRef)).first();
-		if (obraDoc == null) {
-			centrarTexto("La obra no existe.");
-			return;
-		}
-
+		if (obraDoc == null) { centrarTexto("La obra no existe."); return; }
 		JSONArray materiales = new JSONObject(obraDoc.toJson()).getJSONArray("materiales");
 		List<JSONObject> lista = new ArrayList<>();
-		for (int i = 0; i < materiales.length(); i++)
-			lista.add(materiales.getJSONObject(i));
+		for (int i = 0; i < materiales.length(); i++) lista.add(materiales.getJSONObject(i));
 		lista.sort((m1, m2) -> Integer.compare(m1.getInt("A3"), m2.getInt("A3")));
-
 		String fmt = "| %-6s | %-12s | %-15s | %-30s | %-6s | %-6s |%n";
 		System.out.println("-".repeat(90));
 		System.out.format(fmt, "A3", "MARCA", "REFERENCIA", "DESCRIPCIÓN", "SALIDA", "SERVIR");
@@ -594,23 +881,16 @@ public class Modelo {
 		Scanner teclado = new Scanner(System.in);
 		System.out.println("Ingresa la referencia de obra: ");
 		String obraRef = teclado.nextLine();
-
 		Document obra = coleccion.find(eq("obra", obraRef)).first();
-		if (obra == null) {
-			centrarTexto("La obra no existe.");
-			return;
-		}
-
+		if (obra == null) { centrarTexto("La obra no existe."); return; }
 		List<Document> materiales = (List<Document>) obra.get("materiales");
 		int totalMateriales = materiales.size();
 		int totalSalida = 0, totalServir = 0, totalFalta = 0;
-
 		for (Document m : materiales) {
 			totalSalida += m.getInteger("salidaUnidad", 0);
 			totalServir += m.getInteger("servirUnidad", 0);
-			totalFalta += m.getInteger("falta", 0);
+			totalFalta  += m.getInteger("falta", 0);
 		}
-
 		System.out.println("===========================================");
 		System.out.println("Total materiales : " + totalMateriales);
 		System.out.println("Total salida     : " + totalSalida);
@@ -626,18 +906,16 @@ public class Modelo {
 		String fmt = "| %-12s | %-15s | %-18s |%n";
 		System.out.format(fmt, "OBRA", "CLIENTE", "PROYECTO");
 		System.out.println("=".repeat(55));
-
 		if (coleccion.countDocuments() == 0) {
 			centrarTexto("NO HAY OBRAS REGISTRADAS");
 			System.out.println("=".repeat(55));
 			return;
 		}
-
 		try (MongoCursor<Document> cursor = coleccion.find().iterator()) {
 			while (cursor.hasNext()) {
 				Document doc = cursor.next();
-				System.out.format(fmt, doc.getOrDefault("obra", "N/A"), doc.getOrDefault("cliente", "N/A"),
-						doc.getOrDefault("proyecto", "N/A"));
+				System.out.format(fmt, doc.getOrDefault("obra", "N/A"),
+						doc.getOrDefault("cliente", "N/A"), doc.getOrDefault("proyecto", "N/A"));
 			}
 		}
 		System.out.println("=".repeat(55));
@@ -655,12 +933,14 @@ public class Modelo {
 
 	private static int parseEntero(String valor) {
 		try {
-			if (valor == null || valor.trim().isEmpty())
-				return 0;
+			if (valor == null || valor.trim().isEmpty()) return 0;
 			return (int) Double.parseDouble(valor.replace(",", "."));
-		} catch (NumberFormatException e) {
-			return 0;
-		}
+		} catch (NumberFormatException e) { return 0; }
+	}
+
+	public static void exportarObraAExcel(Document obra, File archivo) throws Exception {
+		// Delegamos al método exportar() mejorado con plantilla
+		exportar(obra, archivo);
 	}
 
 	public static void main(String[] args) throws Exception {
@@ -669,59 +949,26 @@ public class Modelo {
 		MongoDatabase database = mongoClient.getDatabase("Listados");
 		MongoCollection<Document> coleccion = database.getCollection("refObras");
 		System.out.println("Conexión exitosa a MongoDB");
-		
-		
-		
+
 		int opcion = 0;
 		do {
 			opcion = menu();
 			switch (opcion) {
-			case 1:
-				File archivoSelected = seleccionarArchivo();
-				importarExcelAMongo(archivoSelected,coleccion);
-				break;
-			case 2:
-				mostrarTituloss(coleccion);
-				break;
-			case 3:
-				mostrarDatos(coleccion);
-				break;
-			case 4:
-				actualizarColumna(coleccion);
-				break;
-			case 5:
-				eliminarFila(coleccion);
-				break;
-			case 6:
-				agregarFila(coleccion);
-				break;
-			case 7:
-				eliminarObra(coleccion);
-				break;
-			case 8:
-				buscarPorCliente(coleccion);
-				break;
-			case 9:
-				buscarPorReferencia(coleccion);
-				break;
-			case 10:
-				ordenarMaterialesPorA3(coleccion);
-				break;
-			case 11:
-				estadisticasObra(coleccion);
-				break;
-			case 12:
-				mostrarObraResumida(coleccion);
-				break;
-			case 13:
-				contarObras(coleccion);
-				break;
-			case 14:
-				System.out.println("Saliendo...");
-				break;
-			default:
-				System.out.println("Opción no válida.");
-				break;
+			case 1:  File archivoSelected = seleccionarArchivo(); importarExcelAMongo(archivoSelected, coleccion); break;
+			case 2:  mostrarTituloss(coleccion);       break;
+			case 3:  mostrarDatos(coleccion);           break;
+			case 4:  actualizarColumna(coleccion);      break;
+			case 5:  eliminarFila(coleccion);           break;
+			case 6:  agregarFila(coleccion);            break;
+			case 7:  eliminarObra(coleccion);           break;
+			case 8:  buscarPorCliente(coleccion);       break;
+			case 9:  buscarPorReferencia(coleccion);    break;
+			case 10: ordenarMaterialesPorA3(coleccion); break;
+			case 11: estadisticasObra(coleccion);       break;
+			case 12: mostrarObraResumida(coleccion);    break;
+			case 13: contarObras(coleccion);            break;
+			case 14: System.out.println("Saliendo..."); break;
+			default: System.out.println("Opción no válida."); break;
 			}
 		} while (opcion != 14);
 	}
