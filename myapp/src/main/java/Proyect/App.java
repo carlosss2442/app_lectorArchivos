@@ -24,10 +24,10 @@ public class App extends Application {
 
         stage.setScene(vista.construirEscena());
         stage.setTitle("Gestión de Obras");
-        Image icon = new Image(getClass().getResourceAsStream("/logo.jpg"));
+        Image icon = new Image(App.class.getResource("/logo.jpg").toExternalForm());
         stage.getIcons().add(icon);
         stage.show();
-     // ebced5431fa7ca4b25f6ec99f926adefda63d274d6aad8153b7a84f080716cc3	   
+     // del docker ebced5431fa7ca4b25f6ec99f926adefda63d274d6aad8153b7a84f080716cc3	   
     }
 
     @Override
