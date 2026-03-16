@@ -40,7 +40,8 @@ import org.apache.poi.xssf.usermodel.*;
 
 public class Modelo {
 
-	private static final int TOTAL_COLS = 12; // A..L
+	// ── FIX 1: TOTAL_COLS pasa de 12 a 13 para incluir N° PEDIDO ─────────────
+	private static final int TOTAL_COLS = 13; // A..M
 
     private static final int[] COL_WIDTHS = {
         8,   // A  A3
@@ -53,14 +54,16 @@ public class Modelo {
         11,  // H  PREPARADO
         8,   // I  FALTA
         15,  // J  PEDIDO COMPLETO
-        17,  // K  FECHA PEDIDO
-        26,  // L  OBSERVACIONES
+        16,  // K  N° PEDIDO          
+        17,  // L  FECHA PEDIDO
+        26,  // M  OBSERVACIONES
     };
 
     private static final String[] COL_TITLES = {
         "A3", "MARCA", "REFERENCIA", "DESCRIPCIÓN",
         "SALIDA\nUNIDAD", "SERVIR\nUNIDAD", "VALIDACIÓN",
         "PREPARADO", "FALTA", "PEDIDO\nCOMPLETO",
+        "N° PEDIDO",        // ← nueva columna
         "FECHA PEDIDO", "OBSERVACIONES"
     };
 
@@ -165,6 +168,7 @@ public class Modelo {
             XSSFRow rowHead = ws.createRow(r++);
             rowHead.setHeightInPoints(28);
             for (int c = 0; c < COL_TITLES.length; c++) {
+                // Columnas bloqueadas (solo lectura visual): VALIDACIÓN(6), FALTA(8)
                 boolean locked = (c == 6 || c == 8);
                 cell(rowHead, c, COL_TITLES[c], locked ? sColHeadLk : sColHead);
             }
@@ -190,8 +194,10 @@ public class Modelo {
                     cellN(row, 7,  prepInt(m.getOrDefault("preparado", "0")),   alt ? sDataA   : sDataN);
                     cellN(row, 8,  m.getInteger("falta", 0),                    alt ? sDataLkA : sDataLkN);
                     cell (row, 9,  ck(s(m, "pedidoCompleto")),                  alt ? sCkA     : sCkN);
-                    cell (row, 10, s(m, "fechaPedido"),                         alt ? sDataA   : sDataN);
-                    cell (row, 11, s(m, "observaciones"),                       alt ? sDataA   : sDataN);
+                    // ── FIX 1: columna N° PEDIDO añadida al Excel ─────────────
+                    cell (row, 10, s(m, "numeroPedido"),                        alt ? sDataA   : sDataN);
+                    cell (row, 11, s(m, "fechaPedido"),                         alt ? sDataA   : sDataN);
+                    cell (row, 12, s(m, "observaciones"),                       alt ? sDataA   : sDataN);
                 }
             }
 
@@ -202,6 +208,7 @@ public class Modelo {
             cell(rowTot, 0, "TOTAL", sTotal);
             merge(ws, r - 1, 0, 3);
 
+            // Totales de columnas numéricas (índices actualizados tras insertar col 10)
             for (int c : new int[]{ 4, 5, 7, 8 }) {
                 String col = String.valueOf((char)('A' + c));
                 XSSFCell fc = rowTot.createCell(c);
@@ -376,6 +383,7 @@ public class Modelo {
             (byte) Integer.parseInt(hex.substring(4, 6), 16)
         };
     }
+    // ── FIX 2: método rgb(String) eliminado — era código muerto (solo retornaba null) ──
 
 	// ─────────────────────────────────────────────────────────────────────────
 	public static String obtenerValorCelda(Cell celda) {
@@ -393,10 +401,6 @@ public class Modelo {
 			}
 		}
 		return formatter.formatCellValue(celda).trim();
-	}
-
-	private static byte[] rgb(String string) {
-		return null;
 	}
 
 	private static String buscarValorSiguiente(Row row, int desdeCol) {
@@ -494,6 +498,8 @@ public class Modelo {
 							if (enc.contains("PREPAR"))                      colMap.put("preparado",     j);
 							if (enc.contains("FALTA"))                       colMap.put("falta",         j);
 							if (enc.contains("PEDIDO COMPLETO") || enc.equals("PEDIDO")) colMap.put("pedidoCompleto", j);
+							// ── FIX 1: detección de la columna N° PEDIDO en importación ──
+							if (enc.contains("N° PEDIDO") || enc.contains("NUM PEDIDO") || enc.contains("NUMERO PEDIDO")) colMap.put("numeroPedido", j);
 							if (enc.contains("FECHA PEDIDO"))                colMap.put("fechaPedido",   j);
 							if (enc.contains("OBSERV"))                      colMap.put("observaciones", j);
 						}
@@ -515,10 +521,8 @@ public class Modelo {
 					continue;
 				}
 
-				// ── Leer salida para calcular falta si no viene en el Excel ──────────────
 				int salidaVal = parseEntero(getCelda(row, colMap, "salidaUnidad"));
 
-				// ── Validación: vacío o columna inexistente → "✘" ────────────────────────
 				String validacionRaw = getCelda(row, colMap, "validacion");
 				String validacionVal = validacionRaw.isEmpty() ? "✘"
 						: (validacionRaw.equals("✔")
@@ -526,7 +530,6 @@ public class Modelo {
 								|| validacionRaw.equalsIgnoreCase("S")
 								|| validacionRaw.equals("1") ? "✔" : "✘");
 
-				// ── Pedido Completo: mismo criterio ──────────────────────────────────────
 				String pedidoRaw = getCelda(row, colMap, "pedidoCompleto");
 				String pedidoVal = pedidoRaw.isEmpty() ? "✘"
 						: (pedidoRaw.equals("✔")
@@ -534,10 +537,8 @@ public class Modelo {
 								|| pedidoRaw.equalsIgnoreCase("S")
 								|| pedidoRaw.equals("1") ? "✔" : "✘");
 
-				// ── Preparado: vacío → 0 ─────────────────────────────────────────────────
 				int preparadoVal = parseEntero(getCelda(row, colMap, "preparado"));
 
-				// ── Falta: si viene en el Excel la usamos; si no → salida - preparado ────
 				String faltaRaw = getCelda(row, colMap, "falta");
 				int faltaVal = faltaRaw.isEmpty()
 						? Math.max(0, salidaVal - preparadoVal)
@@ -550,10 +551,12 @@ public class Modelo {
 						.append("descripcion",    getCelda(row, colMap, "descripcion"))
 						.append("salidaUnidad",   salidaVal)
 						.append("servirUnidad",   parseEntero(getCelda(row, colMap, "servirUnidad")))
-						.append("validacion",     validacionVal)   // ✔ o ✘ — nunca vacío
+						.append("validacion",     validacionVal)
 						.append("preparado",      preparadoVal)
-						.append("falta",          faltaVal)        // calculado si falta la columna
-						.append("pedidoCompleto", pedidoVal)       // ✔ o ✘ — nunca vacío
+						.append("falta",          faltaVal)
+						.append("pedidoCompleto", pedidoVal)
+						// ── FIX 1: numeroPedido incluido en la importación (vacío si no existe la col) ──
+						.append("numeroPedido",   getCelda(row, colMap, "numeroPedido"))
 						.append("fechaPedido",    getCelda(row, colMap, "fechaPedido"))
 						.append("observaciones",  getCelda(row, colMap, "observaciones"));
 
@@ -637,9 +640,9 @@ public class Modelo {
 					"ENTREGA:", jsonO.optString("entrega", "N/A"));
 			System.out.println("-".repeat(180));
 
-			String fmt = "| %-6s | %-12s | %-15s | %-30s | %-6s | %-6s | %-10s | %-10s | %-5s | %-15s | %-12s | %-15s |%n";
+			String fmt = "| %-6s | %-12s | %-15s | %-30s | %-6s | %-6s | %-10s | %-10s | %-5s | %-15s | %-12s | %-15s | %-15s |%n";
 			System.out.format(fmt, "A3", "MARCA", "REFERENCIA", "DESCRIPCIÓN", "SALIDA", "SERVIR", "VALIDACIÓN",
-					"PREPARADO", "FALTA", "PEDIDO COMPLETO", "FECHA PEDIDO", "OBSERVACIONES");
+					"PREPARADO", "FALTA", "PEDIDO COMPLETO", "N° PEDIDO", "FECHA PEDIDO", "OBSERVACIONES");
 			System.out.println("-".repeat(180));
 
 			JSONArray materiales = jsonO.getJSONArray("materiales");
@@ -648,7 +651,9 @@ public class Modelo {
 				System.out.format(fmt, m.optInt("A3"), m.optString("marca", ""), m.optString("referencia", ""),
 						cortarTexto(m.optString("descripcion", ""), 30), m.optInt("salidaUnidad"),
 						m.optInt("servirUnidad"), m.optString("validacion", ""), m.optString("preparado", ""),
-						m.optInt("falta"), m.optString("pedidoCompleto", ""), m.optString("fechaPedido", ""),
+						m.optInt("falta"), m.optString("pedidoCompleto", ""),
+						m.optString("numeroPedido", ""),   // ← FIX 1
+						m.optString("fechaPedido", ""),
 						m.optString("observaciones", ""));
 			}
 			System.out.println("-".repeat(130));
@@ -680,15 +685,16 @@ public class Modelo {
 		System.out.println("1. Marca         2. Referencia    3. Descripción");
 		System.out.println("4. Salida        5. Servir        6. Validación");
 		System.out.println("7. Preparado     8. Falta         9. Pedido Completo");
-		System.out.println("10. Fecha Pedido 11. Observaciones 12. Volver");
+		System.out.println("10. N° Pedido    11. Fecha Pedido 12. Observaciones  13. Volver");
 
 		int opcion = teclado.nextInt();
 		teclado.nextLine();
 
+		// ── FIX 1: numeroPedido añadido al menú de consola (opción 10) ────────
 		String[] campos = { "", "marca", "referencia", "descripcion", "salidaUnidad", "servirUnidad", "validacion",
-				"preparado", "falta", "pedidoCompleto", "fechaPedido", "observaciones" };
+				"preparado", "falta", "pedidoCompleto", "numeroPedido", "fechaPedido", "observaciones" };
 
-		if (opcion < 1 || opcion > 11) { System.out.println("Volviendo..."); return; }
+		if (opcion < 1 || opcion > 12) { System.out.println("Volviendo..."); return; }
 
 		System.out.println("Ingresa el nuevo valor:");
 		String nuevoValor = teclado.nextLine();
@@ -763,17 +769,19 @@ public class Modelo {
 			return;
 		}
 		Document nuevaFila = new Document().append("A3", numeroA3);
-		System.out.print("Marca: ");          nuevaFila.append("marca",         teclado.nextLine());
-		System.out.print("Referencia: ");     nuevaFila.append("referencia",    teclado.nextLine());
-		System.out.print("Descripción: ");    nuevaFila.append("descripcion",   teclado.nextLine());
-		System.out.print("Salida unidad: ");  nuevaFila.append("salidaUnidad",  parseEntero(teclado.nextLine()));
-		System.out.print("Servir unidad: ");  nuevaFila.append("servirUnidad",  parseEntero(teclado.nextLine()));
-		System.out.print("Validación: ");     nuevaFila.append("validacion",    teclado.nextLine());
-		System.out.print("Preparado: ");      nuevaFila.append("preparado",     teclado.nextLine());
-		System.out.print("Falta: ");          nuevaFila.append("falta",         parseEntero(teclado.nextLine()));
-		System.out.print("Pedido completo: ");nuevaFila.append("pedidoCompleto",teclado.nextLine());
-		System.out.print("Fecha pedido: ");   nuevaFila.append("fechaPedido",   teclado.nextLine());
-		System.out.print("Observaciones: ");  nuevaFila.append("observaciones", teclado.nextLine());
+		System.out.print("Marca: ");           nuevaFila.append("marca",         teclado.nextLine());
+		System.out.print("Referencia: ");      nuevaFila.append("referencia",    teclado.nextLine());
+		System.out.print("Descripción: ");     nuevaFila.append("descripcion",   teclado.nextLine());
+		System.out.print("Salida unidad: ");   nuevaFila.append("salidaUnidad",  parseEntero(teclado.nextLine()));
+		System.out.print("Servir unidad: ");   nuevaFila.append("servirUnidad",  parseEntero(teclado.nextLine()));
+		System.out.print("Validación: ");      nuevaFila.append("validacion",    teclado.nextLine());
+		System.out.print("Preparado: ");       nuevaFila.append("preparado",     teclado.nextLine());
+		System.out.print("Falta: ");           nuevaFila.append("falta",         parseEntero(teclado.nextLine()));
+		System.out.print("Pedido completo: "); nuevaFila.append("pedidoCompleto",teclado.nextLine());
+		// ── FIX 1: campo numeroPedido añadido a agregarFila en consola ────────
+		System.out.print("N° Pedido: ");       nuevaFila.append("numeroPedido",  teclado.nextLine());
+		System.out.print("Fecha pedido: ");    nuevaFila.append("fechaPedido",   teclado.nextLine());
+		System.out.print("Observaciones: ");   nuevaFila.append("observaciones", teclado.nextLine());
 		System.out.println("¿Estás seguro? (S/N)");
 		if (teclado.nextLine().equalsIgnoreCase("S")) {
 			coleccion.updateOne(eq("obra", numeroObra), new Document("$push", new Document("materiales", nuevaFila)));
@@ -921,10 +929,6 @@ public class Modelo {
 		System.out.println("=".repeat(55));
 	}
 
-	public static void contarObras(MongoCollection<Document> coleccion) {
-		System.out.println("Total de obras en la base de datos: " + coleccion.countDocuments());
-	}
-
 	public static void centrarTexto(String mensaje) {
 		int ancho = 52;
 		int espacios = (ancho - mensaje.length()) / 2;
@@ -939,10 +943,32 @@ public class Modelo {
 	}
 
 	public static void exportarObraAExcel(Document obra, File archivo) throws Exception {
-		// Delegamos al método exportar() mejorado con plantilla
 		exportar(obra, archivo);
 	}
+	
+	// --- En Modelo.java ---
 
+	public static int contarTodosLosMateriales(com.mongodb.client.MongoCollection<org.bson.Document> coleccion) {
+	    int total = 0;
+	    for (org.bson.Document doc : coleccion.find()) {
+	        java.util.List<org.bson.Document> mats = doc.getList("materiales", org.bson.Document.class);
+	        if (mats != null) total += mats.size();
+	    }
+	    return total;
+	}
+
+	public static int contarAlertasFalta(com.mongodb.client.MongoCollection<org.bson.Document> coleccion) {
+	    int alertas = 0;
+	    for (org.bson.Document doc : coleccion.find()) {
+	        java.util.List<org.bson.Document> mats = doc.getList("materiales", org.bson.Document.class);
+	        if (mats != null) {
+	            for (org.bson.Document m : mats) {
+	                if (m.getInteger("falta", 0) > 0) alertas++;
+	            }
+	        }
+	    }
+	    return alertas;
+	}
 	public static void main(String[] args) throws Exception {
 		System.out.println("Conectando a MongoDB...");
 		MongoClient mongoClient = MongoClients.create("mongodb://localhost:27017");
@@ -966,7 +992,6 @@ public class Modelo {
 			case 10: ordenarMaterialesPorA3(coleccion); break;
 			case 11: estadisticasObra(coleccion);       break;
 			case 12: mostrarObraResumida(coleccion);    break;
-			case 13: contarObras(coleccion);            break;
 			case 14: System.out.println("Saliendo..."); break;
 			default: System.out.println("Opción no válida."); break;
 			}

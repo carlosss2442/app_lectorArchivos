@@ -15,7 +15,7 @@ public class App extends Application {
 
     @Override
     public void start(Stage stage) {
-        mongoClient = MongoClients.create("mongodb://localhost:27017");
+        mongoClient = MongoClients.create("mongodb://192.168.1.57:27017");
         MongoDatabase database = mongoClient.getDatabase("Listados");
         MongoCollection<Document> coleccion = database.getCollection("refObras");
 
