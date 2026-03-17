@@ -11,31 +11,34 @@ import org.bson.Document;
 
 public class App extends Application {
 
-    private MongoClient mongoClient;
+	private MongoClient mongoClient;
 
-    @Override
-    public void start(Stage stage) {
-        mongoClient = MongoClients.create("mongodb://192.168.1.57:27017");
-        MongoDatabase database = mongoClient.getDatabase("Listados");
-        MongoCollection<Document> coleccion = database.getCollection("refObras");
+	@Override
+	public void start(Stage stage) {
+		mongoClient = MongoClients.create("mongodb://192.168.1.57:27017");
+		MongoDatabase database = mongoClient.getDatabase("Listados");
+		MongoCollection<Document> coleccion = database.getCollection("refObras");
 
-        Vista vista = new Vista();
-        new Controlador(vista, coleccion);
+		Vista vista = new Vista();
+		new Controlador(vista, coleccion);
 
-        stage.setScene(vista.construirEscena());
-        stage.setTitle("Gestión de Obras");
-        Image icon = new Image(App.class.getResource("/logo.jpg").toExternalForm());
-        stage.getIcons().add(icon);
-        stage.show();
-     // del docker ebced5431fa7ca4b25f6ec99f926adefda63d274d6aad8153b7a84f080716cc3	   
-    }
+		stage.setScene(vista.construirEscena());
+		stage.setTitle("GESTIÓN DE MATERIALES ");
+		// stage.initStyle(javafx.stage.StageStyle.UNDECORATED);
+		stage.setMaximized(true);
+		Image icon = new Image(App.class.getResource("/logo.jpg").toExternalForm());
+		stage.getIcons().add(icon);
+		stage.show();
+		// del docker ebced5431fa7ca4b25f6ec99f926adefda63d274d6aad8153b7a84f080716cc3
+	}
 
-    @Override
-    public void stop() {
-        if (mongoClient != null) mongoClient.close();
-    }
+	@Override
+	public void stop() {
+		if (mongoClient != null)
+			mongoClient.close();
+	}
 
-    public static void main(String[] args) {
-        launch(args);
-    }
+	public static void main(String[] args) {
+		launch(args);
+	}
 }

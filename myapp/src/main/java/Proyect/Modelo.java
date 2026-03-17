@@ -907,6 +907,8 @@ public class Modelo {
 		System.out.println("===========================================");
 	}
 
+	
+	
 	public static void mostrarObraResumida(MongoCollection<Document> coleccion) {
 		System.out.println("=".repeat(55));
 		centrarTexto("LISTA DE OBRAS");
