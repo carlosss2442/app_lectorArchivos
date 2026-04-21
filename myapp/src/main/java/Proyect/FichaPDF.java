@@ -10,22 +10,15 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
-/**
- * Genera un PDF con la misma plantilla visual que el Excel de Modelo.java.
- * Pagina A4 apaisada, todos los materiales de la obra en una sola tabla continua
- * con salto de pagina automatico.
- */
 public class FichaPDF {
 
-    // ── A4 landscape ──────────────────────────────────────────────────────────
-    private static final float PW = PDRectangle.A4.getHeight(); // 841.9 pt
-    private static final float PH = PDRectangle.A4.getWidth();  // 595.3 pt
+    private static final float PW = PDRectangle.A4.getHeight();
+    private static final float PH = PDRectangle.A4.getWidth();
     private static final float ML = 20f;
     private static final float MR = 20f;
     private static final float MT = 20f;
     private static final float MB = 25f;
 
-    // ── Colores identicos al Excel ────────────────────────────────────────────
     private static final float[] AZUL_OSC  = hex("1F4E79");
     private static final float[] AZUL_MED  = hex("2E75B6");
     private static final float[] AZUL_PAL  = hex("DEEAF1");
@@ -34,52 +27,58 @@ public class FichaPDF {
     private static final float[] BLANCO    = hex("FFFFFF");
     private static final float[] ROJO      = hex("C0392B");
     private static final float[] VERDE     = hex("27AE60");
+    private static final float[] AZUL_VAL  = hex("2980B9");
     private static final float[] GRIS_BORDE= hex("B8CCE4");
     private static final float[] NEGRO     = hex("1F1F1F");
     private static final float[] FONDO_PG  = hex("F0F2F5");
+    private static final float[] GRIS_TEXT = hex("7F8C8D");
 
-    // ── Columnas (mismo orden y proporciones que COL_WIDTHS del Excel) ────────
-    private static final int[] COL_W_CHARS = {8, 14, 16, 36, 13, 13, 11, 11, 8, 15, 16, 17, 26};
+    // ── 9 columnas = mismas que mostrarDetalleObra ────────────────────────────
+    private static final int[] COL_W_CHARS = {
+        8,   // A3
+        14,  // MARCA
+        16,  // REFERENCIA
+        36,  // DESCRIPCIÓN
+        13,  // SALIDA
+        11,  // A PEDIR
+        16,  // PEDIDO COMPLETO
+        16,  // CANTIDAD PEDIDO
+        20,  // FECHA PEDIDO
+    };
+
     private static final String[] COL_TITLES = {
         "A3", "MARCA", "REFERENCIA", "DESCRIPCION",
-        "SALIDA\nUNIDAD", "SERVIR\nUNIDAD", "VALIDACION",
-        "PREPARADO", "FALTA", "PEDIDO\nCOMPLETO",
-        "N PEDIDO", "FECHA PEDIDO", "OBSERVACIONES"
+        "SALIDA", "A PEDIR", "PEDIDO\nCOMPLETO",
+        "CANTIDAD\nPEDIDO", "FECHA PEDIDO"
     };
-    private static final int NC = COL_TITLES.length; // 13
 
-    // ── Estado de instancia ───────────────────────────────────────────────────
-    private PDFont      BOLD, REGULAR, ITALIC;
-    private float[]     colX, colW;
-    private float       tableW;
-    private float       y;          // cursor vertical (baja al dibujar)
-    private PDDocument  doc;
-    private PDPageContentStream cs; // stream de la pagina actual
+    private static final int NC = COL_TITLES.length; // 9
+
+    private PDFont BOLD, REGULAR, ITALIC;
+    private float[] colX, colW;
+    private float tableW;
+    private float y;
+    private PDDocument doc;
+    private PDPageContentStream cs;
 
     // ═════════════════════════════════════════════════════════════════════════
-    //  API PUBLICA
+    // API PÚBLICA
     // ═════════════════════════════════════════════════════════════════════════
 
-    /** Exporta la obra completa (todos los materiales) a un PDF multi-pagina */
     public static void generarObraCompleta(Document obra, File destino) throws Exception {
         new FichaPDF().generar(obra, destino);
     }
 
-    /**
-     * Genera la ficha de UN solo material como byte[] para el servidor QR.
-     * Crea un documento temporal con ese unico material.
-     */
     public static byte[] generarFichaBytes(Document obra, Document mat) throws Exception {
-        // Construimos una obra temporal con solo ese material
         Document obraTemp = new Document();
-        obraTemp.put("obra",         obra.get("obra"));
-        obraTemp.put("cliente",      obra.get("cliente"));
-        obraTemp.put("proyecto",     obra.get("proyecto"));
-        obraTemp.put("entrega",      obra.get("entrega"));
-        obraTemp.put("responsable",  obra.get("responsable"));
-        obraTemp.put("impresion",    obra.get("impresion"));
-        obraTemp.put("titulo",       obra.get("titulo"));
-        obraTemp.put("materiales",   java.util.Collections.singletonList(mat));
+        obraTemp.put("obra",        obra.get("obra"));
+        obraTemp.put("cliente",     obra.get("cliente"));
+        obraTemp.put("proyecto",    obra.get("proyecto"));
+        obraTemp.put("entrega",     obra.get("entrega"));
+        obraTemp.put("responsable", obra.get("responsable"));
+        obraTemp.put("impresion",   obra.get("impresion"));
+        obraTemp.put("titulo",      obra.get("titulo"));
+        obraTemp.put("materiales",  java.util.Collections.singletonList(mat));
 
         File tmp = File.createTempFile("qr_ficha_", ".pdf");
         try {
@@ -91,8 +90,9 @@ public class FichaPDF {
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    //  GENERACION
+    // GENERACIÓN
     // ═════════════════════════════════════════════════════════════════════════
+
     private void generar(Document obra, File destino) throws Exception {
         List<Document> mats = obra.getList("materiales", Document.class);
         if (mats == null || mats.isEmpty())
@@ -102,7 +102,6 @@ public class FichaPDF {
         initFuentes();
         initColumnas();
 
-        // ── Primera pagina: titulo + metadatos + cabecera ────────────────────
         abrirPagina();
         dibujarFondo();
         dibujarTitulo();
@@ -110,47 +109,39 @@ public class FichaPDF {
         y -= 6;
         dibujarCabeceraTabla();
 
-        // ── Filas de materiales con salto automatico ──────────────────────────
-        // Paginas de continuacion: solo fondo + cabecera (sin titulo ni metadatos)
         final float H_FILA  = 13f;
         final float H_TOTAL = 18f;
-        final float RESERVA = MB + H_TOTAL + H_FILA + 18f; // espacio minimo al pie
+        final float RESERVA = MB + H_TOTAL + H_FILA + 18f;
 
         for (int i = 0; i < mats.size(); i++) {
             if (y - H_FILA < RESERVA) {
                 dibujarPie(false);
                 abrirPagina();
                 dibujarFondo();
-                dibujarCabeceraTabla(); // solo cabecera, SIN titulo ni metadatos
+                dibujarCabeceraTabla();
             }
             dibujarFilaMaterial(mats.get(i), i, H_FILA);
         }
 
-        // ── Fila TOTAL ────────────────────────────────────────────────────────
         if (y - H_TOTAL < MB + 18f) {
             dibujarPie(false);
             abrirPagina();
             dibujarFondo();
         }
         dibujarFilaTotal(mats);
-
-        // ── Pie de la ultima pagina ───────────────────────────────────────────
         dibujarPie(true);
 
-        // ── Guardar ───────────────────────────────────────────────────────────
         cs.close();
         doc.save(destino);
         doc.close();
     }
 
-    // ─── Abre una nueva pagina y resetea cursor ───────────────────────────────
     private void abrirPagina() throws IOException {
         if (cs != null) cs.close();
-        PDRectangle size = new PDRectangle(PW, PH);
-        PDPage page = new PDPage(size);
+        PDPage page = new PDPage(new PDRectangle(PW, PH));
         doc.addPage(page);
         cs = new PDPageContentStream(doc, page);
-        y  = PH - MT;
+        y = PH - MT;
     }
 
     private void initFuentes() throws IOException {
@@ -174,7 +165,7 @@ public class FichaPDF {
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    //  BLOQUES VISUALES
+    // BLOQUES VISUALES
     // ═════════════════════════════════════════════════════════════════════════
 
     private void dibujarFondo() throws IOException {
@@ -183,7 +174,6 @@ public class FichaPDF {
         cs.fill();
     }
 
-    /** Fila titulo: "LISTADO MATERIALES CE" sobre fondo azul oscuro */
     private void dibujarTitulo() throws IOException {
         float h = 30f;
         rectFill(ML, y - h, tableW, h, AZUL_OSC);
@@ -194,49 +184,59 @@ public class FichaPDF {
         y -= h;
     }
 
-    /** Bloque de metadatos en dos columnas, identico al Excel */
     private void dibujarMetadatos(Document obra) throws IOException {
-        float h    = 16f;
-        float lw   = 58f;
-        float c1W  = tableW * 0.55f;
-        float c2X  = ML + c1W;
-        float c2W  = tableW - c1W;
+        float h   = 16f;
+        float lw  = 58f;
+        float c1W = tableW * 0.55f;
+        float c2X = ML + c1W;
+        float c2W = tableW - c1W;
 
         metaFila(h, c1W, c2X, c2W, lw,
-                "Ref. Obra:",   str(obra,"obra"),        "Responsable:", str(obra,"responsable")); y -= h;
+            "Ref. Obra:", str(obra, "obra"),
+            "Responsable:", str(obra, "responsable"));
+        y -= h;
         metaFila(h, c1W, c2X, c2W, lw,
-                "Cliente:",     str(obra,"cliente"),     "Impresion:",   str(obra,"impresion"));   y -= h;
+            "Cliente:", str(obra, "cliente"),
+            "Impresion:", str(obra, "impresion"));
+        y -= h;
         metaFila(h, c1W, c2X, c2W, lw,
-                "Proyecto:",    str(obra,"proyecto"),    "Entrega:",     str(obra,"entrega"));      y -= h;
+            "Proyecto:", str(obra, "proyecto"),
+            "Entrega:", str(obra, "entrega"));
+        y -= h;
 
-        // Titulo (span completo)
         rectFill(ML, y - h, tableW, h, hex("EBF3FB"));
-        borde   (ML, y - h, tableW, h, GRIS_BORDE, 0.5f);
-        setFill(AZUL_OSC); texto("Titulo:", BOLD, 8, ML + 4, y - h + 4);
-        setFill(NEGRO);    texto(sanitizar(str(obra,"titulo")), BOLD, 9, ML + lw, y - h + 4);
+        borde(ML, y - h, tableW, h, GRIS_BORDE, 0.5f);
+        setFill(AZUL_OSC);
+        texto("Titulo:", BOLD, 8, ML + 4, y - h + 4);
+        setFill(NEGRO);
+        texto(sanitizar(str(obra, "titulo")), BOLD, 9, ML + lw, y - h + 4);
         y -= h;
     }
 
     private void metaFila(float h, float c1W, float c2X, float c2W, float lw,
                            String l1, String v1, String l2, String v2) throws IOException {
-        rectFill(ML,  y - h, c1W, h, AZUL_CABM);
-        borde   (ML,  y - h, c1W, h, GRIS_BORDE, 0.5f);
-        setFill(AZUL_OSC); texto(l1, BOLD, 8, ML + 4, y - h + 4);
-        setFill(NEGRO);    texto(sanitizar(v1), BOLD, 9, ML + lw, y - h + 4);
+        rectFill(ML, y - h, c1W, h, AZUL_CABM);
+        borde(ML, y - h, c1W, h, GRIS_BORDE, 0.5f);
+        setFill(AZUL_OSC);
+        texto(l1, BOLD, 8, ML + 4, y - h + 4);
+        setFill(NEGRO);
+        texto(sanitizar(v1), BOLD, 9, ML + lw, y - h + 4);
 
         rectFill(c2X, y - h, c2W, h, hex("EBF3FB"));
-        borde   (c2X, y - h, c2W, h, GRIS_BORDE, 0.5f);
-        setFill(AZUL_OSC); texto(l2, BOLD, 8, c2X + 4, y - h + 4);
-        setFill(NEGRO);    texto(sanitizar(v2), BOLD, 9, c2X + lw, y - h + 4);
+        borde(c2X, y - h, c2W, h, GRIS_BORDE, 0.5f);
+        setFill(AZUL_OSC);
+        texto(l2, BOLD, 8, c2X + 4, y - h + 4);
+        setFill(NEGRO);
+        texto(sanitizar(v2), BOLD, 9, c2X + lw, y - h + 4);
     }
 
-    /** Cabecera de tabla: azul medio, naranja para columnas bloqueadas */
     private void dibujarCabeceraTabla() throws IOException {
         float h = 24f;
         for (int i = 0; i < NC; i++) {
-            boolean locked = (i == 6 || i == 8);
+            // CANTIDAD PEDIDO (col 7) y FECHA PEDIDO (col 8) en naranja = vienen de Compras
+            boolean locked = (i == 7 || i == 8);
             rectFill(colX[i], y - h, colW[i], h, locked ? NARANJA : AZUL_MED);
-            borde   (colX[i], y - h, colW[i], h, hex("1F4E79"), 1f);
+            borde(colX[i], y - h, colW[i], h, hex("1F4E79"), 1f);
             setFill(locked ? NEGRO : BLANCO);
             String[] p = COL_TITLES[i].split("\n");
             if (p.length == 1) {
@@ -249,71 +249,81 @@ public class FichaPDF {
         y -= h;
     }
 
-    /** Una fila de material */
     private void dibujarFilaMaterial(Document m, int idx, float h) throws IOException {
-        boolean alt = (idx % 2 != 0);
+        boolean alt   = (idx % 2 != 0);
+        int salida    = m.getInteger("salidaUnidad", 0);
+        int prep      = prepInt(m.getOrDefault("preparado", "0"));
+        int aPedir    = Math.max(0, salida - prep);
+        int cantPed   = m.getInteger("pedidoCompleto2", 0);
+        String pedCom = aPedir == 0 ? "SI" : "NO";
+        String fecha  = str(m, "fechaPedido").isEmpty() ? "—" : str(m, "fechaPedido");
+
         String[] vals = {
             String.valueOf(m.getInteger("A3", 0)),
             str(m, "marca"),
             str(m, "referencia"),
             recortar(str(m, "descripcion"), 42),
-            String.valueOf(m.getInteger("salidaUnidad", 0)),
-            String.valueOf(m.getInteger("servirUnidad", 0)),
-            ck(m.getString("validacion")),
-            String.valueOf(prepInt(m.getOrDefault("preparado", "0"))),
-            String.valueOf(m.getInteger("falta", 0)),
-            ck(m.getString("pedidoCompleto")),
-            str(m, "numeroPedido"),
-            str(m, "fechaPedido"),
-            recortar(str(m, "observaciones"), 28)
+            String.valueOf(salida),
+            String.valueOf(aPedir),
+            pedCom,
+            String.valueOf(cantPed),
+            fecha
         };
 
         for (int c = 0; c < NC; c++) {
-            boolean locked = (c == 6 || c == 8);
-            float[] bg = locked
-                    ? (alt ? hex("FFF4CE") : hex("FFFDE7"))
-                    : (alt ? AZUL_PAL     : BLANCO);
+            float[] bg = alt ? AZUL_PAL : BLANCO;
             rectFill(colX[c], y - h, colW[c], h, bg);
-            borde   (colX[c], y - h, colW[c], h, GRIS_BORDE, 0.4f);
+            borde(colX[c], y - h, colW[c], h, GRIS_BORDE, 0.4f);
 
-            if (c == 8) {
-                setFill(m.getInteger("falta", 0) > 0 ? ROJO : VERDE);
-            } else if (locked) {
-                setFill(ROJO);
+            // Color dinámico por columna
+            if (c == 5) {
+                // A PEDIR: rojo si hay pendiente, verde si está completo
+                setFill(aPedir > 0 ? ROJO : VERDE);
+            } else if (c == 6) {
+                // PEDIDO COMPLETO: verde SI, rojo NO
+                setFill(aPedir == 0 ? VERDE : ROJO);
+            } else if (c == 7) {
+                // CANTIDAD PEDIDO: azul si hay valor, gris si es 0
+                setFill(cantPed > 0 ? AZUL_VAL : GRIS_TEXT);
+            } else if (c == 8) {
+                // FECHA PEDIDO: gris si es guión
+                setFill("—".equals(fecha) ? GRIS_TEXT : NEGRO);
             } else {
                 setFill(NEGRO);
             }
+
             PDFont f = (c == 0 || c == 2 || c == 3) ? BOLD : REGULAR;
             textoCentrado(sanitizar(vals[c]), f, 7, colX[c], y - h, colW[c], h);
         }
         y -= h;
     }
 
-    /** Fila TOTAL con sumas */
     private void dibujarFilaTotal(List<Document> mats) throws IOException {
         float h = 18f;
-        int tS = 0, tSv = 0, tP = 0, tF = 0;
+        int tSalida = 0, tAPedir = 0, tCantPed = 0;
         for (Document m : mats) {
-            tS  += m.getInteger("salidaUnidad", 0);
-            tSv += m.getInteger("servirUnidad", 0);
-            tP  += prepInt(m.getOrDefault("preparado", "0"));
-            tF  += m.getInteger("falta", 0);
+            int salida = m.getInteger("salidaUnidad", 0);
+            int prep   = prepInt(m.getOrDefault("preparado", "0"));
+            tSalida  += salida;
+            tAPedir  += Math.max(0, salida - prep);
+            tCantPed += m.getInteger("pedidoCompleto2", 0);
         }
 
         // Span cols 0-3 con etiqueta TOTAL
         float spanW = colX[4] - ML;
         rectFill(ML, y - h, spanW, h, AZUL_OSC);
-        borde   (ML, y - h, spanW, h, hex("1F4E79"), 1f);
+        borde(ML, y - h, spanW, h, hex("1F4E79"), 1f);
         setFill(BLANCO);
         textoCentrado("TOTAL", BOLD, 9, ML, y - h, spanW, h);
 
-        // Cols 4 en adelante, todas azul oscuro
+        // Resto de columnas en azul oscuro
         for (int c = 4; c < NC; c++) {
             rectFill(colX[c], y - h, colW[c], h, AZUL_OSC);
-            borde   (colX[c], y - h, colW[c], h, hex("1F4E79"), 1f);
+            borde(colX[c], y - h, colW[c], h, hex("1F4E79"), 1f);
         }
-        // Valores numericos
-        int[][] totsCols = {{4, tS}, {5, tSv}, {7, tP}, {8, tF}};
+
+        // Valores: col4=SALIDA, col5=A PEDIR, col7=CANTIDAD PEDIDO
+        int[][] totsCols = { { 4, tSalida }, { 5, tAPedir }, { 7, tCantPed } };
         for (int[] tc : totsCols) {
             setFill(BLANCO);
             textoCentrado(String.valueOf(tc[1]), BOLD, 9, colX[tc[0]], y - h, colW[tc[0]], h);
@@ -321,7 +331,6 @@ public class FichaPDF {
         y -= h;
     }
 
-    /** Pie de pagina */
     private void dibujarPie(boolean esUltima) throws IOException {
         setFill(hex("B8CCE4"));
         cs.setLineWidth(0.5f);
@@ -341,7 +350,7 @@ public class FichaPDF {
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    //  PRIMITIVAS
+    // PRIMITIVAS
     // ═════════════════════════════════════════════════════════════════════════
 
     private void rectFill(float x, float fy, float w, float h, float[] c) throws IOException {
@@ -372,9 +381,8 @@ public class FichaPDF {
         String s = sanitizar(t);
         if (s.isEmpty()) return;
         float tw = anchoTexto(s, f, sz);
-        // Recortar si no cabe
         while (s.length() > 1 && tw > cw - 2) {
-            s  = s.substring(0, s.length() - 2) + ".";
+            s = s.substring(0, s.length() - 2) + ".";
             tw = anchoTexto(s, f, sz);
         }
         float x  = cx + Math.max(0, (cw - tw) / 2f);
@@ -389,44 +397,46 @@ public class FichaPDF {
     private float anchoTexto(String t, PDFont f, float sz) throws IOException {
         String s = sanitizar(t);
         if (s.isEmpty()) return 0f;
-        try { return f.getStringWidth(s) / 1000f * sz; }
-        catch (Exception e) { return s.length() * sz * 0.5f; }
+        try {
+            return f.getStringWidth(s) / 1000f * sz;
+        } catch (Exception e) {
+            return s.length() * sz * 0.5f;
+        }
     }
 
-    private void setFill  (float[] c) throws IOException { cs.setNonStrokingColor(c[0], c[1], c[2]); }
-    private void setStroke(float[] c) throws IOException { cs.setStrokingColor   (c[0], c[1], c[2]); }
+    private void setFill(float[] c)   throws IOException { cs.setNonStrokingColor(c[0], c[1], c[2]); }
+    private void setStroke(float[] c) throws IOException { cs.setStrokingColor(c[0], c[1], c[2]); }
 
     // ═════════════════════════════════════════════════════════════════════════
-    //  HELPERS ESTATICOS
+    // HELPERS ESTÁTICOS
     // ═════════════════════════════════════════════════════════════════════════
 
     private static String sanitizar(String s) {
         if (s == null) return "";
-        return s.replace("✔","SI").replace("✘","NO").replace("✎","*")
-                .replaceAll("[^\\x20-\\xFF]", "");
+        return s.replace("✔", "SI").replace("✘", "NO")
+                .replace("✎", "*").replaceAll("[^\\x20-\\xFF]", "");
     }
 
     private static float[] hex(String h) {
-        return new float[]{
-            Integer.parseInt(h.substring(0,2),16)/255f,
-            Integer.parseInt(h.substring(2,4),16)/255f,
-            Integer.parseInt(h.substring(4,6),16)/255f
+        return new float[] {
+            Integer.parseInt(h.substring(0, 2), 16) / 255f,
+            Integer.parseInt(h.substring(2, 4), 16) / 255f,
+            Integer.parseInt(h.substring(4, 6), 16) / 255f
         };
     }
 
     private static String str(Document d, String k) {
-        Object v = d.get(k); return v != null ? v.toString().trim() : "";
+        Object v = d.get(k);
+        return v != null ? v.toString().trim() : "";
     }
 
-    private static String ck(String v)  { return "✔".equals(v) ? "SI" : "NO"; }
-
     private static int prepInt(Object v) {
-        try { return (int) Double.parseDouble(v.toString().replace(",",".")); }
+        try { return (int) Double.parseDouble(v.toString().replace(",", ".")); }
         catch (Exception e) { return 0; }
     }
 
     private static String recortar(String s, int max) {
         if (s == null || s.isEmpty()) return "";
-        return s.length() <= max ? s : s.substring(0, max-1) + ".";
+        return s.length() <= max ? s : s.substring(0, max - 1) + ".";
     }
 }

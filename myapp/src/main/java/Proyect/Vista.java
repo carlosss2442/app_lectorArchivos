@@ -21,11 +21,9 @@ public class Vista {
 	private final Button btnEliminarFila = new Button("🗑 Eliminar Material");
 	private final Button btnActualizar = new Button("✏️ Editar Material");
 	private final Button btnEliminarObra = new Button("❌ Eliminar Obra");
-	private final Button btnBuscarCliente = new Button("👤 Por Cliente");
-	private final Button btnBuscarRef = new Button("🔎 Por Referencia");
-	private final Button btnOrdenarA3 = new Button("🔢 Ordenar A3");
 	private final Button btnLimpiarInput = new Button("🧹 Limpiar Pantalla");
-	//private final Button btnSalir = new Button("🚪 Salir del Programa");
+	private final Button btnCompras = new Button("🛒 Compras");
+	// private final Button btnSalir = new Button("🚪 Salir del Programa");
 
 	private final TextField txtInput = new TextField();
 	private final Label lblEstado = new Label("Sistemas listos - Base de Datos conectada");
@@ -38,7 +36,7 @@ public class Vista {
 	// Contenedor principal para tablas y bienvenida
 	private final VBox contenedorDinamico = new VBox(15);
 
-	private final Button btnEtiquetas = new Button("🏷 Imprimir Etiquetas / QR");
+	//private final Button btnEtiquetas = new Button("🏷 Imprimir Etiquetas / QR");
 
 	public Scene construirEscena() {
 		// Colores y Estilos
@@ -52,8 +50,7 @@ public class Vista {
 		sidebar.setPadding(new Insets(10, 0, 0, 0));
 
 		configurarBotonesSidebar(btnListarObras, btnImportar, btnExportar, btnAgregarFila, btnActualizar,
-				btnEliminarFila, btnEliminarObra, btnEtiquetas, btnBuscarObra, btnBuscarCliente, btnBuscarRef,
-				btnOrdenarA3);
+				btnEliminarFila, btnEliminarObra, btnBuscarObra, btnCompras);
 
 		Region espaciadorVertical = new Region();
 		VBox.setVgrow(espaciadorVertical, Priority.ALWAYS);
@@ -69,12 +66,12 @@ public class Vista {
 		Hyperlink linkGoogle = new Hyperlink("🌐 Buscar en Google");
 		linkGoogle.setStyle(
 				"-fx-text-fill: #ecf0f1; -fx-font-size: 11px; -fx-border-color: transparent; -fx-padding: 0;");
-		linkGoogle.setOnAction(e -> abrirEnlace("https://www.google.com"));
+		linkGoogle.setOnAction(e -> abrirEnlace("https://www.tecnomat.es  "));
 
 		Hyperlink linkEmail = new Hyperlink("✉ tecnomat@tecnomat.es");
 		linkEmail.setStyle(
 				"-fx-text-fill: #ecf0f1; -fx-font-size: 11px; -fx-border-color: transparent; -fx-padding: 0;");
-		linkEmail.setOnAction(e -> abrirEnlace("mailto:tecnomat@tecnomat.es"));
+		linkEmail.setOnAction(e -> abrirEnlace("https://www.tecnomat.es/"));
 
 		Label lblTelefono = new Label("📞 961 231 971");
 		lblTelefono.setStyle("-fx-text-fill: #ecf0f1; -fx-font-size: 11px; -fx-font-weight: bold;");
@@ -82,11 +79,10 @@ public class Vista {
 		bloqueContacto.getChildren().addAll(lblContactoTit, linkGoogle, linkEmail, lblTelefono);
 
 		sidebar.getChildren().addAll(crearEtiquetaSeccion("ARCHIVO Y LISTADO"), btnListarObras, btnImportar,
-				btnExportar, new Separator(), crearEtiquetaSeccion("GESTIÓN Y EDICIÓN"), btnAgregarFila, btnActualizar,
-				btnEliminarFila, btnEliminarObra, btnEtiquetas, new Separator(), crearEtiquetaSeccion("BÚSQUEDAS"),
-				btnBuscarObra, btnBuscarCliente, btnBuscarRef, btnOrdenarA3, espaciadorVertical, bloqueContacto
-				);
-
+				btnExportar, new Separator(), crearEtiquetaSeccion("GESTIÓN Y EDICIÓN (Logistica)"), btnAgregarFila,
+				btnActualizar, btnEliminarFila, btnEliminarObra, new Separator(),
+				crearEtiquetaSeccion("LISTADOS (Dep. Informatica)"), btnBuscarObra, new Separator(),
+				crearEtiquetaSeccion("COMPRAS"), btnCompras, espaciadorVertical, bloqueContacto);
 		// --- BARRA SUPERIOR ---
 		HBox topBar = new HBox(15);
 		topBar.setPadding(new Insets(15, 25, 15, 25));
@@ -101,7 +97,7 @@ public class Vista {
 		btnLimpiarInput.setStyle(
 				"-fx-background-color: rgba(255,255,255,0.2); -fx-text-fill: white; -fx-background-radius: 20; -fx-font-weight: bold; -fx-cursor: hand;");
 
-		Label lblLogo = new Label("GESTIÓN DE MATERIALES");
+		Label lblLogo = new Label("GESTIÓN DE MATERIALES ");
 		lblLogo.setStyle("-fx-text-fill: white; -fx-font-size: 20px; -fx-font-weight: bold; -fx-letter-spacing: 2px;");
 
 		Region spacer = new Region();
@@ -307,16 +303,8 @@ public class Vista {
 		return btnEliminarObra;
 	}
 
-	public Button getBtnBuscarCliente() {
-		return btnBuscarCliente;
-	}
-
-	public Button getBtnBuscarRef() {
-		return btnBuscarRef;
-	}
-
-	public Button getBtnOrdenarA3() {
-		return btnOrdenarA3;
+	public Button getBtnCompras() {
+		return btnCompras;
 	}
 
 	public Button getBtnLimpiarInput() {
@@ -327,9 +315,9 @@ public class Vista {
 	 * public Button getBtnSalir() { return btnSalir; }
 	 */
 
-	public Button getBtnEtiquetas() {
-		return btnEtiquetas;
-	}
+	/*
+	 * public Button getBtnEtiquetas() { return btnEtiquetas; }
+	 */
 
 	public void setOnInputChange(javafx.beans.value.ChangeListener<String> listener) {
 		txtInput.textProperty().addListener(listener);
@@ -343,7 +331,5 @@ public class Vista {
 			txtInput.setStyle("-fx-background-radius: 20; -fx-border-radius: 20; -fx-padding: 0 15;");
 		}
 	}
-	
-	
 
 }

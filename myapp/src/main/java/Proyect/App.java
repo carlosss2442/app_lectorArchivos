@@ -15,12 +15,16 @@ public class App extends Application {
 
 	@Override
 	public void start(Stage stage) {
-		mongoClient = MongoClients.create("mongodb://192.168.1.57:27017");
+		String uri ="mongodb://192.168.1.44:27017";
+		String uri2 ="mongodb://localhost:27017";
+		String miIp = "mongodb://192.168.1.57:27017";
+		mongoClient = MongoClients.create(uri2);
+		//mongoClient = MongoClients.create("mongodb://localhost:27017");
 		MongoDatabase database = mongoClient.getDatabase("Listados");
 		MongoCollection<Document> coleccion = database.getCollection("refObras");
 
 		Vista vista = new Vista();
-		new Controlador(vista, coleccion);
+		new Controlador(vista, coleccion); 
 
 		stage.setScene(vista.construirEscena());
 		stage.setTitle("GESTIÓN DE MATERIALES ");
