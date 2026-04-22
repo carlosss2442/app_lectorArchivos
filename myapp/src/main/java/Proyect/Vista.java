@@ -145,27 +145,31 @@ public class Vista {
 	}
 
 	private void mostrarPantallaBienvenida() {
-		contenedorDinamico.getChildren().clear();
-		contenedorDinamico.setAlignment(Pos.CENTER);
+	    contenedorDinamico.getChildren().clear();
+	    contenedorDinamico.setAlignment(Pos.CENTER);
 
-		try {
-			ImageView logoGrande = new ImageView(new Image(getClass().getResourceAsStream("/logo.jpg")));
-			logoGrande.setFitWidth(450);
-			logoGrande.setPreserveRatio(true);
-			logoGrande.setSmooth(true);
+	    var stream = getClass().getResourceAsStream("/logo.jpg");
+	    
+	    if (stream != null) {
+	        ImageView logoGrande = new ImageView(new Image(stream));
+	        logoGrande.setFitWidth(450);
+	        logoGrande.setPreserveRatio(true);
+	        logoGrande.setSmooth(true);
 
-			Label lblB1 = new Label("BIENVENIDO A GESTIÓN DE MATERIALES TECNOMAT");
-			lblB1.setStyle("-fx-text-fill: #2c3e50; -fx-font-size: 26px; -fx-font-weight: 900; -fx-padding: 20 0 5 0;");
+	        Label lblB1 = new Label("BIENVENIDO A GESTIÓN DE MATERIALES TECNOMAT");
+	        lblB1.setStyle("-fx-text-fill: #2c3e50; -fx-font-size: 26px; -fx-font-weight: 900; -fx-padding: 20 0 5 0;");
 
-			Label lblB2 = new Label("Seleccione una operación en el menú lateral para gestionar la base de datos");
-			lblB2.setStyle("-fx-text-fill: #7f8c8d; -fx-font-size: 15px;");
+	        Label lblB2 = new Label("Seleccione una operación en el menú lateral para gestionar la base de datos");
+	        lblB2.setStyle("-fx-text-fill: #7f8c8d; -fx-font-size: 15px;");
 
-			contenedorDinamico.getChildren().addAll(logoGrande, lblB1, lblB2);
-		} catch (Exception e) {
-			Label lblError = new Label("GESTIÓN DE MATERIALES");
-			lblError.setStyle("-fx-font-size: 60px; -fx-font-weight: 900; -fx-text-fill: #dfe4ea;");
-			contenedorDinamico.getChildren().add(lblError);
-		}
+	        contenedorDinamico.getChildren().addAll(logoGrande, lblB1, lblB2);
+	    } else {
+	        // Si llega aquí, logo.jpg NO está dentro del JAR
+	        System.err.println("❌ ERROR: /logo.jpg no encontrado en el classpath");
+	        Label lblError = new Label("GESTIÓN DE MATERIALES");
+	        lblError.setStyle("-fx-font-size: 60px; -fx-font-weight: 900; -fx-text-fill: #dfe4ea;");
+	        contenedorDinamico.getChildren().add(lblError);
+	    }
 	}
 
 	public void setContenidoCentral(javafx.scene.Node nodo) {

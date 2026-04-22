@@ -154,5 +154,15 @@
 				</configuration>
 			</plugin>
 		</plugins>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+				<includes>
+					<include>**/*.jpg</include>
+					<include>**/*.png</include>
+					<include>**/*.fxml</include>
+				</includes>
+			</resource>
+		</resources>
 	</build>
 </project>

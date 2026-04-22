@@ -635,7 +635,7 @@ public class Controlador {
 			tfAPedir.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; "
 					+ "-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: #e74c3c; -fx-alignment: center;");
 
-			TextField tfQuitar = styledField("0", colWidths[7]);
+			TextField tfQuitar = styledField("", colWidths[7]);
 
 			String fechaExistente = m.getString("fechaPedido") != null ? m.getString("fechaPedido") : "—";
 			Label lblFechaPedido = new Label(fechaExistente);
@@ -734,7 +734,7 @@ public class Controlador {
 				}
 
 				tfPrep.setText(String.valueOf(nuevoPrep));
-				tfServir.setText("0");
+				tfServir.setText("");
 				tfServir.setStyle("-fx-background-radius: 5; -fx-border-color: #dfe4ea; -fx-border-radius: 5;");
 				calcular.run();
 			});
@@ -768,7 +768,7 @@ public class Controlador {
 				}
 
 				tfPrep.setText(String.valueOf(prepActual - quitar));
-				tfQuitar.setText("0");
+				tfQuitar.setText("");
 				tfQuitar.setStyle("-fx-background-radius: 5; -fx-border-color: #dfe4ea; -fx-border-radius: 5;");
 				calcular.run();
 			});
@@ -1060,7 +1060,7 @@ public class Controlador {
 					+ (aPedirInicial > 0 ? "#e74c3c" : "#27ae60") + ";");
 
 			// ── Pedir (editable) ──────────────────────────────────────────────
-			TextField tfPedir = styledField("0", colWidths[3]);
+			TextField tfPedir = styledField("", colWidths[3]);
 
 			tfPedir.textProperty().addListener((obs, oldVal, newVal) -> {
 				if (!newVal.matches("\\d*")) {
@@ -1086,7 +1086,7 @@ public class Controlador {
 					+ "-fx-font-weight: bold; -fx-font-size: 13px; -fx-alignment: center; -fx-text-fill: #2980b9;");
 
 			// ── Quitar (editable) ─────────────────────────────────────────────
-			TextField tfQuitar = styledField("0", colWidths[6]);
+			TextField tfQuitar = styledField("", colWidths[6]);
 
 			tfQuitar.textProperty().addListener((obs, oldVal, newVal) -> {
 				if (!newVal.matches("\\d*")) {
@@ -1126,7 +1126,7 @@ public class Controlador {
 
 				int nuevoPedidoCompleto = pedidoActual + pedir;
 				tfPedidoCompleto.setText(String.valueOf(nuevoPedidoCompleto));
-				tfPedir.setText("0");
+				tfPedir.setText("");
 				tfPedir.setStyle("-fx-background-radius: 5; -fx-border-color: #dfe4ea; -fx-border-radius: 5;");
 				tfPedidoCompleto.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; "
 						+ "-fx-font-weight: bold; -fx-font-size: 13px; "
@@ -1171,7 +1171,7 @@ public class Controlador {
 				// ✅ Solo resta de pedido completo, no toca A Pedir
 				int nuevoPedidoCompleto = pedidoActual - quitar;
 				tfPedidoCompleto.setText(String.valueOf(nuevoPedidoCompleto));
-				tfQuitar.setText("0");
+				tfQuitar.setText("");
 				tfQuitar.setStyle("-fx-background-radius: 5; -fx-border-color: #dfe4ea; -fx-border-radius: 5;");
 				tfPedidoCompleto.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; "
 						+ "-fx-font-weight: bold; -fx-font-size: 13px; -fx-alignment: center; -fx-text-fill: #2980b9;");
