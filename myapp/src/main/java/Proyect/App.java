@@ -16,12 +16,17 @@ public class App extends Application {
 
 	@Override
 	public void start(Stage stage) throws URISyntaxException {
+<<<<<<< HEAD
 		String conexionAtlas = "mongodb+srv://tecnomatDB:tecnomatAppCat@cluster0.0lj80bm.mongodb.net/?appName=Cluster0";
+=======
+		String uri = "mongodb://localhost:27017";
+		String miIp = "mongodb://192.168.1.57:27017";
+		String conexionAtlas = "your conexion (data base)"
+>>>>>>> ae3e772a1875e78a17d1293fe14bf881476cc55f
 		mongoClient = MongoClients.create(conexionAtlas);
 
 		MongoDatabase database = mongoClient.getDatabase("Listados");
 		MongoCollection<Document> coleccion = database.getCollection("refObras");
-		// mongodb+srv://tecnomatDB:tecnomatAppCat@cluster0.0lj80bm.mongodb.net/?appName=Cluster0
 		Vista vista = new Vista();
 		controlador = new Controlador(vista, coleccion); // ← guarda la referencia
 
