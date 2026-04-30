@@ -1,6 +1,7 @@
 package Proyect;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,23 +45,19 @@ public class Modelo {
 	// ── TOTAL_COLS = 9 (igual que mostrarDetalleObra) ─────────────────────────
 	private static final int TOTAL_COLS = 9;
 
-	private static final int[] COL_WIDTHS = {
-	    8,   // A  A3
-	    14,  // B  MARCA
-	    16,  // C  REFERENCIA
-	    36,  // D  DESCRIPCIÓN
-	    13,  // E  SALIDA
-	    11,  // F  A PEDIR
-	    16,  // G  PEDIDO COMPLETO
-	    16,  // H  CANTIDAD PEDIDO
-	    20,  // I  FECHA PEDIDO
+	private static final int[] COL_WIDTHS = { 8, // A A3
+			14, // B MARCA
+			16, // C REFERENCIA
+			36, // D DESCRIPCIÓN
+			13, // E SALIDA
+			11, // F A PEDIR
+			16, // G PEDIDO COMPLETO
+			16, // H CANTIDAD PEDIDO
+			20, // I FECHA PEDIDO
 	};
 
-	private static final String[] COL_TITLES = {
-	    "A3", "MARCA", "REFERENCIA", "DESCRIPCIÓN",
-	    "SALIDA", "A PEDIR", "PEDIDO\nCOMPLETO",
-	    "CANTIDAD\nPEDIDO", "FECHA PEDIDO"
-	};
+	private static final String[] COL_TITLES = { "A3", "MARCA", "REFERENCIA", "DESCRIPCIÓN", "SALIDA", "A PEDIR",
+			"PEDIDO\nCOMPLETO", "CANTIDAD\nPEDIDO", "FECHA PEDIDO" };
 	// Colores
 	private static final byte[] AZUL_OSCURO = rgb1("1F4E79");
 	private static final byte[] AZUL_MEDIO = rgb1("2E75B6");
@@ -162,37 +159,37 @@ public class Modelo {
 			XSSFRow rowHead = ws.createRow(r++);
 			rowHead.setHeightInPoints(28);
 			for (int c = 0; c < COL_TITLES.length; c++) {
-			    cell(rowHead, c, COL_TITLES[c], sColHead);
+				cell(rowHead, c, COL_TITLES[c], sColHead);
 			}
 
 			List<Document> mats = obra.getList("materiales", Document.class);
 			int firstDataRow = r + 1;
 
 			if (mats != null) {
-			    for (int i = 0; i < mats.size(); i++) {
-			        Document m = mats.get(i);
-			        boolean alt = (i % 2 != 0);
+				for (int i = 0; i < mats.size(); i++) {
+					Document m = mats.get(i);
+					boolean alt = (i % 2 != 0);
 
-			        int salida    = m.getInteger("salidaUnidad", 0);
-			        int prep      = prepInt(m.getOrDefault("preparado", "0"));
-			        int aPedir    = Math.max(0, salida - prep);
-			        int cantPed   = m.getInteger("pedidoCompleto2", 0);
-			        String falta0 = aPedir == 0 ? "✔" : "✘";   // pedidoCompleto visual
-			        String fecha  = m.getString("fechaPedido") != null ? m.getString("fechaPedido") : "—";
+					int salida = m.getInteger("salidaUnidad", 0);
+					int prep = prepInt(m.getOrDefault("preparado", "0"));
+					int aPedir = Math.max(0, salida - prep);
+					int cantPed = m.getInteger("pedidoCompleto2", 0);
+					String falta0 = aPedir == 0 ? "✔" : "✘"; // pedidoCompleto visual
+					String fecha = m.getString("fechaPedido") != null ? m.getString("fechaPedido") : "—";
 
-			        XSSFRow row = ws.createRow(r++);
-			        row.setHeightInPoints(16);
+					XSSFRow row = ws.createRow(r++);
+					row.setHeightInPoints(16);
 
-			        cellN(row, 0, m.getInteger("A3", 0),   alt ? sDataA : sDataN);
-			        cell (row, 1, s(m, "marca"),            alt ? sDataA : sDataN);
-			        cell (row, 2, s(m, "referencia"),       alt ? sDataA : sDataN);
-			        cell (row, 3, s(m, "descripcion"),      alt ? sDataA : sDataN);
-			        cellN(row, 4, salida,                   alt ? sDataA : sDataN);
-			        cellN(row, 5, aPedir,                   alt ? sDataLkA : sDataLkN);  // naranja = calculado
-			        cell (row, 6, falta0,                   alt ? sCkA : sCkN);          // ✔/✘
-			        cellN(row, 7, cantPed,                  alt ? sDataA : sDataN);
-			        cell (row, 8, fecha,                    alt ? sDataA : sDataN);
-			    }
+					cellN(row, 0, m.getInteger("A3", 0), alt ? sDataA : sDataN);
+					cell(row, 1, s(m, "marca"), alt ? sDataA : sDataN);
+					cell(row, 2, s(m, "referencia"), alt ? sDataA : sDataN);
+					cell(row, 3, s(m, "descripcion"), alt ? sDataA : sDataN);
+					cellN(row, 4, salida, alt ? sDataA : sDataN);
+					cellN(row, 5, aPedir, alt ? sDataLkA : sDataLkN); // naranja = calculado
+					cell(row, 6, falta0, alt ? sCkA : sCkN); // ✔/✘
+					cellN(row, 7, cantPed, alt ? sDataA : sDataN);
+					cell(row, 8, fecha, alt ? sDataA : sDataN);
+				}
 			}
 
 			int lastDataRow = r;
@@ -203,11 +200,11 @@ public class Modelo {
 			merge(ws, r - 1, 0, 3);
 
 			// Totales de columnas numéricas (índices actualizados tras insertar col 10)
-			for (int c : new int[]{ 4, 5, 7 }) {
-			    String col = String.valueOf((char) ('A' + c));
-			    XSSFCell fc = rowTot.createCell(c);
-			    fc.setCellFormula("SUM(" + col + firstDataRow + ":" + col + lastDataRow + ")");
-			    fc.setCellStyle(sTotalNum);
+			for (int c : new int[] { 4, 5, 7 }) {
+				String col = String.valueOf((char) ('A' + c));
+				XSSFCell fc = rowTot.createCell(c);
+				fc.setCellFormula("SUM(" + col + firstDataRow + ":" + col + lastDataRow + ")");
+				fc.setCellStyle(sTotalNum);
 			}
 			for (int c = 0; c < TOTAL_COLS; c++) {
 				if (rowTot.getCell(c) == null)
@@ -489,7 +486,7 @@ public class Modelo {
 					}
 
 					if (val.contains("ENTREGA") && !documentoPrincipal.containsKey("entrega"))
-						documentoPrincipal.put("entrega", buscarValorSiguiente(row, i));
+						documentoPrincipal.put("entrega", normalizarFecha(buscarValorSiguiente(row, i)));
 
 					if (val.equals("A3")) {
 						for (int j = 0; j < row.getLastCellNum(); j++) {
@@ -533,7 +530,6 @@ public class Modelo {
 					continue;
 				}
 
-				
 				int salidaVal = parseEntero(getCelda(row, colMap, "salidaUnidad"));
 				int preparadoVal = parseEntero(getCelda(row, colMap, "preparado"));
 				int faltaVal = Math.max(0, salidaVal - preparadoVal);
@@ -545,19 +541,17 @@ public class Modelo {
 
 				// DESPUÉS:
 
-				Document material = new Document()
-				    .append("A3", idA3)
-				    .append("marca", getCelda(row, colMap, "marca"))
-				    .append("referencia", getCelda(row, colMap, "referencia"))
-				    .append("descripcion", getCelda(row, colMap, "descripcion"))
-				    .append("salidaUnidad", salidaVal)
-				    .append("preparado", preparadoVal)
-				    .append("pedidoCompleto2", 0)
-				    .append("fechaPedido", null);
+				Document material = new Document().append("A3", idA3).append("marca", getCelda(row, colMap, "marca"))
+						.append("referencia", getCelda(row, colMap, "referencia"))
+						.append("descripcion", getCelda(row, colMap, "descripcion")).append("salidaUnidad", salidaVal)
+						.append("preparado", preparadoVal).append("pedidoCompleto2", 0).append("fechaPedido", null);
 
 				listaMateriales.add(material);
 			}
 		}
+
+		String fechaAlta = new SimpleDateFormat("dd/MM/yyyy HH:mm").format(new Date());
+		documentoPrincipal.put("fechaAlta", fechaAlta);
 
 		documentoPrincipal.append("materiales", listaMateriales);
 		System.out.println("Documento que se insertará:");
@@ -1008,48 +1002,50 @@ public class Modelo {
 	// ALERTAS URGENTES AL ARRANCAR
 	// ═══════════════════════════════════════════════════════════════════
 	public static List<Document> obtenerAlertasUrgentes(MongoCollection<Document> coleccion) {
-	    List<Document> alertas = new java.util.ArrayList<>();
-	    try (MongoCursor<Document> cursor = coleccion.find().iterator()) {
-	        while (cursor.hasNext()) {
-	            Document obra = cursor.next();
-	            List<Document> mats = obra.getList("materiales", Document.class);
-	            if (mats == null) continue;
+		List<Document> alertas = new java.util.ArrayList<>();
+		try (MongoCursor<Document> cursor = coleccion.find().iterator()) {
+			while (cursor.hasNext()) {
+				Document obra = cursor.next();
+				List<Document> mats = obra.getList("materiales", Document.class);
+				if (mats == null)
+					continue;
 
-	            int totalFalta = 0;
-	            int totalMateriales = mats.size();
-	            for (Document m : mats) {
-	                int salida = m.getInteger("salidaUnidad", 0);
-	                int prep   = prepInt(m.getOrDefault("preparado", "0"));
-	                int pedido = m.getInteger("pedidoCompleto2", 0);
-	                if (Math.max(0, salida - prep) > 0) totalFalta++;
-	            }
+				int totalFalta = 0;
+				int totalMateriales = mats.size();
+				for (Document m : mats) {
+					int salida = m.getInteger("salidaUnidad", 0);
+					int prep = prepInt(m.getOrDefault("preparado", "0"));
+					int pedido = m.getInteger("pedidoCompleto2", 0);
+					if (Math.max(0, salida - prep) > 0)
+						totalFalta++;
+				}
 
-	            if (totalFalta > 0) {
-	                Document alerta = new Document()
-	                    .append("obra",        obra.getString("obra"))
-	                    .append("cliente",     obra.getString("cliente"))
-	                    .append("proyecto",    obra.getString("proyecto"))
-	                    .append("entrega",     obra.getString("entrega") != null ? obra.getString("entrega") : "—")
-	                    .append("totalFalta",  totalFalta)
-	                    .append("totalMats",   totalMateriales);
-	                alertas.add(alerta);
-	            }
-	        }
-	    }
-	    // Ordenar: obras sin fecha de entrega al final, con fecha primero
-	    alertas.sort((a, b) -> {
-	        String fa = a.getString("entrega");
-	        String fb = b.getString("entrega");
-	        boolean aVacia = fa == null || fa.equals("—") || fa.isEmpty();
-	        boolean bVacia = fb == null || fb.equals("—") || fb.isEmpty();
-	        if (aVacia && bVacia) return 0;
-	        if (aVacia) return 1;
-	        if (bVacia) return -1;
-	        return fa.compareTo(fb);
-	    });
-	    return alertas;
+				if (totalFalta > 0) {
+					Document alerta = new Document().append("obra", obra.getString("obra"))
+							.append("cliente", obra.getString("cliente")).append("proyecto", obra.getString("proyecto"))
+							.append("entrega", obra.getString("entrega") != null ? obra.getString("entrega") : "—")
+							.append("totalFalta", totalFalta).append("totalMats", totalMateriales);
+					alertas.add(alerta);
+				}
+			}
+		}
+		// Ordenar: obras sin fecha de entrega al final, con fecha primero
+		alertas.sort((a, b) -> {
+			String fa = a.getString("entrega");
+			String fb = b.getString("entrega");
+			boolean aVacia = fa == null || fa.equals("—") || fa.isEmpty();
+			boolean bVacia = fb == null || fb.equals("—") || fb.isEmpty();
+			if (aVacia && bVacia)
+				return 0;
+			if (aVacia)
+				return 1;
+			if (bVacia)
+				return -1;
+			return fa.compareTo(fb);
+		});
+		return alertas;
 	}
-	
+
 	public static int contarAlertasFalta(MongoCollection<Document> coleccion) {
 		int alertas = 0;
 		for (Document doc : coleccion.find()) {
@@ -1064,6 +1060,33 @@ public class Modelo {
 			}
 		}
 		return alertas;
+	}
+
+	private static String normalizarFecha(String fechaStr) {
+		if (fechaStr == null || fechaStr.isBlank())
+			return fechaStr;
+
+		// Fix: si viene como dd/MM/0026 corregir a dd/MM/2026
+		fechaStr = fechaStr.trim();
+		if (fechaStr.matches("\\d{1,2}/\\d{1,2}/00\\d{2}")) {
+			fechaStr = fechaStr.replaceAll("/00(\\d{2})$", "/20$1");
+		}
+
+		List<SimpleDateFormat> formatos = Arrays.asList(new SimpleDateFormat("dd/MM/yyyy"),
+				new SimpleDateFormat("d/M/yyyy"), new SimpleDateFormat("MM/dd/yyyy"), new SimpleDateFormat("M/dd/yy"),
+				new SimpleDateFormat("MM/dd/yy"), new SimpleDateFormat("dd/MM/yy"), new SimpleDateFormat("d/M/yy"));
+
+		SimpleDateFormat salida = new SimpleDateFormat("dd/MM/yyyy");
+		for (SimpleDateFormat fmt : formatos) {
+			try {
+				fmt.setLenient(false);
+				fmt.set2DigitYearStart(new SimpleDateFormat("yyyy").parse("2000"));
+				Date fecha = fmt.parse(fechaStr);
+				return salida.format(fecha);
+			} catch (Exception ignored) {
+			}
+		}
+		return fechaStr;
 	}
 
 	public static void main(String[] args) throws Exception {

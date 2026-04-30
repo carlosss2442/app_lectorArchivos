@@ -37,7 +37,7 @@ public class Controlador {
 		this.coleccion = coleccion;
 		registrarEventos();
 		actualizarMetricasDashboard();
-
+		iniciarAutoRefresco();
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
@@ -57,6 +57,8 @@ public class Controlador {
 		// vista.getBtnSalir() .setOnAction(e -> onSalir());
 		// vista.getBtnEtiquetas().setOnAction(e -> onImprimirEtiquetas());
 		vista.setOnInputChange((obs, oldVal, newVal) -> onFiltrarEnTiempoReal(newVal));
+		vista.getBtnInformePendientes().setOnAction(e -> onInformePendientes());
+		vista.getBtnFueraDePlazo().setOnAction(e -> onInformeFueraDePlazo());
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
@@ -118,9 +120,10 @@ public class Controlador {
 			while (cursor.hasNext())
 				obras.add(cursor.next());
 		}
-		String[] cols = { "REF. OBRA", "CLIENTE", "PROYECTO", "ENTREGA", "RESPONSABLE" };
-		String[] keys = { "obra", "cliente", "proyecto", "entrega", "responsable" };
-		mostrarTablaResultados("Listado General de Obras", obras, cols, keys);
+		String[] cols = { "REF. OBRA", "CLIENTE", "PROYECTO", "ENTREGA", "RESPONSABLE", "FECHA ALTA" };
+		String[] keys = { "obra", "cliente", "proyecto", "entrega", "responsable", "fechaAlta" };
+		mostrarTablaResultadosConEdicion("Listado General de Obras", obras, cols, keys);
+		vista.setEstado("Total obras: " + obras.size());
 		vista.setEstado("Total obras: " + obras.size());
 	}
 
@@ -261,12 +264,14 @@ public class Controlador {
 			materiales.add(copia);
 		}
 
-		String[] cols = { "A3", "MARCA", "REFERENCIA", "DESCRIPCIÓN", "SALIDA", "A PEDIR", "PEDIDO COMPLETO",
-				"CANTIDAD PEDIDO", "FECHA PEDIDO" };
-		String[] keys = { "A3", "marca", "referencia", "descripcion", "salidaUnidad", "falta", "pedidoCompleto",
-				"pedidoCompleto2", "fechaPedido" };
-		mostrarTablaResultados("Detalle Obra: " + ref + " | Cliente: " + doc.getString("cliente"), materiales, cols,
-				keys);
+		String[] cols = { "A3", "MARCA", "REFERENCIA", "DESCRIPCIÓN", "UNIDAD", "PENDIENTE", "CANTIDAD PEDIDO",
+				"PEDIDO COMPLETO", "FECHA PEDIDO" };
+		String[] keys = { "A3", "marca", "referencia", "descripcion", "salidaUnidad", "falta", "pedidoCompleto2",
+				"pedidoCompleto", "fechaPedido" };
+		mostrarTablaResultados(
+				"Detalle Obra: " + ref + " | Cliente: " + doc.getString("cliente") + " | Alta: "
+						+ (doc.getString("fechaAlta") != null ? doc.getString("fechaAlta") : "—"),
+				materiales, cols, keys);
 	}
 
 	// ── Buscar por cliente ────────────────────────────────────────────────────
@@ -296,7 +301,7 @@ public class Controlador {
 				}
 			}
 		}
-		String[] cols = { "OBRA", "A3", "REFERENCIA", "MARCA", "DESCRIPCIÓN", "PREPARADO", "A PEDIR" };
+		String[] cols = { "OBRA", "A3", "REFERENCIA", "MARCA", "DESCRIPCIÓN", "PREPARADO", "PENDIENTE" };
 		String[] keys = { "obraRef", "A3", "referencia", "marca", "descripcion", "preparado", "falta" };
 		mostrarTablaResultados("Búsqueda de Material: " + refBusqueda, filas, cols, keys);
 	}
@@ -323,7 +328,7 @@ public class Controlador {
 				}
 			}
 		}
-		String[] cols = { "OBRA", "A3", "REFERENCIA", "MARCA", "DESCRIPCIÓN", "PREPARADO", "A PEDIR" };
+		String[] cols = { "OBRA", "A3", "REFERENCIA", "MARCA", "DESCRIPCIÓN", "PREPARADO", "PENDIENTE" };
 		String[] keys = { "obraRef", "A3", "referencia", "marca", "descripcion", "preparado", "falta" };
 		mostrarTablaResultados("Búsqueda A3: " + a3, filas, cols, keys);
 	}
@@ -359,11 +364,10 @@ public class Controlador {
 			}
 		}
 
-		String[] cols = { "A3", "MARCA", "REFERENCIA", "DESCRIPCIÓN", "SALIDA", "A PEDIR", "PEDIDO COMPLETO",
-				"CANTIDAD PEDIDO", "FECHA PEDIDO" };
-		String[] keys = { "A3", "marca", "referencia", "descripcion", "salidaUnidad", "falta", "pedidoCompleto",
-				"pedidoCompleto2", "fechaPedido" };
-
+		String[] cols = { "A3", "MARCA", "REFERENCIA", "DESCRIPCIÓN", "UNIDAD", "PENDIENTE", "CANTIDAD PEDIDO",
+				"PEDIDO COMPLETO", "FECHA PEDIDO" };
+		String[] keys = { "A3", "marca", "referencia", "descripcion", "salidaUnidad", "falta", "pedidoCompleto2",
+				"pedidoCompleto", "fechaPedido", };
 		if (!materialesVista.isEmpty()) {
 			mostrarTablaResultados("Materiales de Obra: " + ref + " | Cliente: " + obra.getString("cliente"),
 					materialesVista, cols, keys);
@@ -546,11 +550,12 @@ public class Controlador {
 			return;
 		}
 
-		ButtonType btnTypeAplicar = new ButtonType("Guardar", ButtonBar.ButtonData.APPLY);
-
 		Dialog<List<Document>> dialog = new Dialog<>();
 		dialog.setTitle("Editor Maestro de Obras");
-		dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, btnTypeAplicar, ButtonType.CANCEL);
+		ButtonType btnTypeCancelar = new ButtonType("Cancelar", ButtonBar.ButtonData.RIGHT);
+		ButtonType btnTypeSalir = new ButtonType("Salir", ButtonBar.ButtonData.RIGHT);
+		ButtonType btnTypeAplicar = new ButtonType("Guardar", ButtonBar.ButtonData.RIGHT);
+		dialog.getDialogPane().getButtonTypes().addAll(btnTypeAplicar, btnTypeSalir, btnTypeCancelar);
 		dialog.getDialogPane().setPrefWidth(1400);
 		dialog.getDialogPane().setPrefHeight(650);
 
@@ -558,19 +563,20 @@ public class Controlador {
 		cabeceraDialogo.setStyle("-fx-background-color: #2f3542; -fx-padding: 15;");
 		Label lblTitulo = new Label("Editando Obra: " + ref);
 		lblTitulo.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
-		Label lblSub = new Label("Proyecto: " + obra.getString("proyecto"));
+		Label lblSub = new Label("Proyecto: " + obra.getString("proyecto") + "   |   Alta: "
+				+ (obra.getString("fechaAlta") != null ? obra.getString("fechaAlta") : "—"));
 		lblSub.setStyle("-fx-text-fill: #a4b0be; -fx-font-size: 13px;");
 		cabeceraDialogo.getChildren().addAll(lblTitulo, lblSub);
 
-		double[] colWidths = { 55, 130, 250, 80, 80, 90, 80, 80, 80, 90, 80 };
+		double[] colWidths = { 55, 130, 250, 80, 80, 80, 90, 80, 80, 80, 90 };
 
 		GridPane gridHeader = new GridPane();
 		gridHeader.setHgap(10);
 		gridHeader.setPadding(new Insets(12, 15, 12, 15));
 		gridHeader.setStyle("-fx-background-color: #f1f2f6; -fx-border-color: #dfe4ea; -fx-border-width: 0 0 1 0;");
 
-		String[] headers = { "A3", "REFERENCIA 🔒", "DESCRIPCIÓN 🔒", "PEDIDO 🔒", "SERVIR", "VALIDAR", "PREPARADO 🔒",
-				"QUITAR", "QUITAR BTN", "CANT. PEDIDO 🔒", "A PEDIR" };
+		String[] headers = { "A3", "REFERENCIA 🔒", "DESCRIPCIÓN 🔒", "UNIDAD 🔒", "PENDIENTE", "SERVIR", "AÑADIR",
+				"PREPARADO 🔒", "QUITAR", "ELIMINAR", "CANT. PEDIDO 🔒" };
 
 		for (int i = 0; i < headers.length; i++) {
 			Label l = new Label(headers[i]);
@@ -643,7 +649,7 @@ public class Controlador {
 			lblFechaPedido.setPrefWidth(100);
 			lblFechaPedido.setStyle("-fx-text-fill: #7f8c8d; -fx-font-size: 11px; -fx-font-weight: bold;");
 
-			Button btnValidar = new Button("Validar");
+			Button btnValidar = new Button("Añadir");
 			btnValidar.setStyle("-fx-background-color: #2980b9; -fx-text-fill: white; "
 					+ "-fx-font-weight: bold; -fx-font-size: 11px; "
 					+ "-fx-background-radius: 6; -fx-cursor: hand; -fx-padding: 4 10;");
@@ -787,14 +793,13 @@ public class Controlador {
 			gridDatos.add(lblRef, 1, i);
 			gridDatos.add(lblDesc, 2, i);
 			gridDatos.add(tfSalida, 3, i);
-			gridDatos.add(tfServir, 4, i);
-			gridDatos.add(hboxValidar, 5, i);
-			gridDatos.add(tfPrep, 6, i);
-			gridDatos.add(tfQuitar, 7, i);
-			gridDatos.add(hboxQuitar, 8, i);
-			gridDatos.add(tfPedidoComp2, 9, i);
-			gridDatos.add(tfAPedir, 10, i);
-
+			gridDatos.add(tfAPedir, 4, i);
+			gridDatos.add(tfServir, 5, i);
+			gridDatos.add(hboxValidar, 6, i);
+			gridDatos.add(tfPrep, 7, i);
+			gridDatos.add(tfQuitar, 8, i);
+			gridDatos.add(hboxQuitar, 9, i);
+			gridDatos.add(tfPedidoComp2, 10, i);
 			// ctrl[0]=doc ctrl[1]=tfPrep ctrl[2]=tfAPedir ctrl[3]=tfPedidoComp2
 			// ctrl[4]=tfServir ctrl[5]=btnValidar ctrl[6]=tfQuitar ctrl[7]=btnQuitar
 			// ctrl[8]=a3DeLaFila (int guardado como Integer) ctrl[9]=lblFechaPedido
@@ -874,30 +879,23 @@ public class Controlador {
 		final String refFinal = ref;
 
 		java.util.function.Supplier<List<Document>> construirListaFresca = () -> {
-		    List<Document> nuevaLista = new java.util.ArrayList<>();
-		    for (Object[] ctrl : filaControles) {
-		        Document mOrig    = (Document) ctrl[0];
-		        int nuevoPrep     = parseEntero(((TextField) ctrl[1]).getText());
-		        int indice        = (int) ctrl[8]; // ← índice de posición
+			List<Document> nuevaLista = new java.util.ArrayList<>();
+			for (Object[] ctrl : filaControles) {
+				Document mOrig = (Document) ctrl[0];
+				int nuevoPrep = parseEntero(((TextField) ctrl[1]).getText());
+				int indice = (int) ctrl[8];
 
-		        // Recargar por índice — funciona aunque haya A3 duplicados
-		        Document matFresco = recargarMaterialPorIndice(refFinal, indice);
-		        int pedidoComp2Fresco   = matFresco != null ? matFresco.getInteger("pedidoCompleto2", 0) : 0;
-		        String fechaPedidoFresca = matFresco != null ? matFresco.getString("fechaPedido") : null;
+				// Recargar desde Mongo para obtener pedidoCompleto2 y fechaPedido frescos
+				Document matFresco = recargarMaterialPorIndice(refFinal, indice);
+				int pedidoComp2Fresco = matFresco != null ? matFresco.getInteger("pedidoCompleto2", 0) : 0;
+				// ── fechaPedido NUNCA se toca aquí, siempre se recupera de Mongo ──
+				String fechaPedidoFresca = matFresco != null ? matFresco.getString("fechaPedido") : null;
 
-		        // Si el usuario validó en este diálogo, la fecha del label tiene prioridad
-		        String fechaDelLabel = ((Label) ctrl[9]).getText();
-		        if (fechaDelLabel != null && !fechaDelLabel.equals("—")) {
-		            fechaPedidoFresca = fechaDelLabel;
-		        }
-
-		        Document actualizado = new Document(mOrig)
-		                .append("preparado", nuevoPrep)
-		                .append("pedidoCompleto2", pedidoComp2Fresco)
-		                .append("fechaPedido", fechaPedidoFresca);
-		        nuevaLista.add(actualizado);
-		    }
-		    return nuevaLista;
+				Document actualizado = new Document(mOrig).append("preparado", nuevoPrep)
+						.append("pedidoCompleto2", pedidoComp2Fresco).append("fechaPedido", fechaPedidoFresca);
+				nuevaLista.add(actualizado);
+			}
+			return nuevaLista;
 		};
 
 		// ── Botón Aplicar (guarda sin cerrar) ────────────────────────────────
@@ -921,14 +919,73 @@ public class Controlador {
 			List<Document> nuevaLista = construirListaFresca.get();
 			coleccion.updateOne(eq("obra", refFinal), new Document("$set", new Document("materiales", nuevaLista)));
 			vista.setEstado("💾 Cambios guardados (sin cerrar).");
+
+			// ── Recalcular PENDIENTE visualmente en cada fila sin cerrar ─────────────
+			for (Object[] ctrl : filaControles) {
+				TextField tfPrepCtrl = (TextField) ctrl[1];
+				TextField tfAPedirCtrl = (TextField) ctrl[2];
+				TextField tfServirCtrl = (TextField) ctrl[4];
+				Button btnValidarCtrl = (Button) ctrl[5];
+				TextField tfQuitarCtrl = (TextField) ctrl[6];
+				Button btnQuitarCtrl = (Button) ctrl[7];
+				Document mOrig = (Document) ctrl[0];
+
+				int salida = mOrig.getInteger("salidaUnidad", 0);
+				int preparado = parseEntero(tfPrepCtrl.getText());
+				int pendiente = Math.max(0, salida - preparado);
+
+				tfAPedirCtrl.setText(String.valueOf(pendiente));
+				tfAPedirCtrl.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; "
+						+ "-fx-font-weight: bold; -fx-font-size: 13px; -fx-alignment: center; -fx-text-fill: "
+						+ (pendiente > 0 ? "#e74c3c" : "#27ae60") + ";");
+
+				// Bloquear fila si pendiente llegó a 0
+				if (salida > 0 && preparado >= salida) {
+					tfServirCtrl.setEditable(false);
+					tfServirCtrl.setStyle("-fx-background-color: #f1f2f6; -fx-text-fill: #7f8c8d;");
+					btnValidarCtrl.setDisable(true);
+					btnValidarCtrl.setStyle("-fx-background-color: #bdc3c7; -fx-text-fill: white; "
+							+ "-fx-font-weight: bold; -fx-font-size: 11px; "
+							+ "-fx-background-radius: 6; -fx-padding: 4 10;");
+				}
+			}
+
 			onBuscarObra(refFinal);
+
 		});
 
-		// ── Botón OK (guarda y cierra) ────────────────────────────────────────
 		dialog.setResultConverter(btn -> {
 			if (btn != ButtonType.OK)
 				return null;
 			return construirListaFresca.get();
+		});
+
+		// ── Interceptar OK para avisar de campos pendientes ──────────────────
+		Button botonSalir = (Button) dialog.getDialogPane().lookupButton(btnTypeSalir);
+		botonSalir.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
+			boolean hayPendientes = filaControles.stream().anyMatch(ctrl -> {
+				int servir = parseEntero(((TextField) ctrl[4]).getText());
+				int quitar = parseEntero(((TextField) ctrl[6]).getText());
+				return servir > 0 || quitar > 0;
+			});
+			if (hayPendientes) {
+				boolean continuar = vista.confirmarAdvertencia("Cantidades no guardadas",
+						"Tienes cantidades no guardadas.\nSi continúas perderás la información.\n¿Estás seguro de salir?");
+				if (!continuar)
+					event.consume();
+			}
+		});
+
+		dialog.setResultConverter(btn -> {
+			if (btn != btnTypeSalir)
+				return null;
+			return construirListaFresca.get();
+		});
+
+		Button botonCancelar = (Button) dialog.getDialogPane().lookupButton(btnTypeCancelar);
+		botonCancelar.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
+			event.consume();
+			dialog.getDialogPane().getScene().getWindow().hide();
 		});
 
 		dialog.showAndWait().ifPresent(lista -> {
@@ -983,8 +1040,10 @@ public class Controlador {
 
 		Dialog<List<Document>> dialog = new Dialog<>();
 		dialog.setTitle("Gestión de Compras");
+		ButtonType btnTypeCancelar = new ButtonType("Cancelar", ButtonBar.ButtonData.RIGHT);
 		ButtonType btnTypeAplicar = new ButtonType("Guardar", ButtonBar.ButtonData.RIGHT);
-		dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, btnTypeAplicar, ButtonType.CANCEL);
+		ButtonType btnTypeSalir = new ButtonType("Salir", ButtonBar.ButtonData.RIGHT);
+		dialog.getDialogPane().getButtonTypes().addAll(btnTypeAplicar, btnTypeSalir, btnTypeCancelar);
 		dialog.getDialogPane().setPrefWidth(1100);
 		dialog.getDialogPane().setPrefHeight(650);
 
@@ -993,8 +1052,8 @@ public class Controlador {
 		Label lblTitulo = new Label("Compras: " + ref);
 		lblTitulo.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
 		Label lblSub = new Label(
-				"Cliente: " + obra.getString("cliente") + "  |  Proyecto: " + obra.getString("proyecto"));
-		lblSub.setStyle("-fx-text-fill: #a4b0be; -fx-font-size: 13px;");
+				"Cliente: " + obra.getString("cliente") + "  |  Proyecto: " + obra.getString("proyecto") + "  |  Alta: "
+						+ (obra.getString("fechaAlta") != null ? obra.getString("fechaAlta") : "—"));
 		cabeceraDialogo.getChildren().addAll(lblTitulo, lblSub);
 
 		double[] colWidths = { 55, 250, 90, 90, 90, 110, 90, 90, 110 };
@@ -1004,7 +1063,7 @@ public class Controlador {
 		gridHeader.setPadding(new Insets(12, 15, 12, 15));
 		gridHeader.setStyle("-fx-background-color: #f1f2f6; -fx-border-color: #dfe4ea; -fx-border-width: 0 0 1 0;");
 
-		String[] headers = { "A3", "DESCRIPCIÓN", "A PEDIR", "PEDIR", "VALIDAR", "PEDIDO COMPLETO 🔒", "QUITAR",
+		String[] headers = { "A3", "DESCRIPCIÓN", "PENDIENTE", "PEDIR", "GUARDAR", "PEDIDO COMPLETO 🔒", "ELIMINAR",
 				"QUITAR BTN", "FECHA PEDIDO" };
 
 		for (int i = 0; i < headers.length; i++) {
@@ -1112,7 +1171,7 @@ public class Controlador {
 
 			// ── Botón Validar ─────────────────────────────────────────────────
 			Button btnQuitar = new Button("Quitar");
-			Button btnValidar = new Button("Validar");
+			Button btnValidar = new Button("Pedir");
 			btnValidar.setStyle("-fx-background-color: #2980b9; -fx-text-fill: white; "
 					+ "-fx-font-weight: bold; -fx-font-size: 11px; "
 					+ "-fx-background-radius: 6; -fx-cursor: hand; -fx-padding: 4 10;");
@@ -1257,20 +1316,35 @@ public class Controlador {
 			});
 		}
 
-		// ── Bloquear filas ya completas al abrir ──────────────────────────────────
+		// ── Bloquear filas completas al abrir ────────────────────────────────────
+		// ── Bloquear solo filas donde logística ya preparó todo ──────────────────
 		for (Object[] ctrl : filaControles) {
-			int aPedirActual = parseEntero(((TextField) ctrl[1]).getText()); // pedidoCompleto2 actual
-			// Recalcular aPedir real desde los valores originales
 			Document mOrig = (Document) ctrl[0];
 			int salidaV = mOrig.getInteger("salidaUnidad", 0);
 			int prepV = parseEntero(mOrig.getOrDefault("preparado", "0").toString());
-			int yaP = parseEntero(((TextField) ctrl[1]).getText());
-			int aPedirReal = Math.max(0, salidaV - prepV - yaP);
+			TextField tfPedirCtrl = (TextField) ctrl[3];
+			Button btnPedirCtrl = (Button) ctrl[4];
+			TextField tfQuitarCtrl = (TextField) ctrl[5];
+			Button btnQuitarCtrl = (Button) ctrl[6];
 
-			// Una fila se bloquea solo cuando ya pediste >= lo que falta preparar
-			int maximoAPedir = Math.max(0, salidaV - prepV);
-			if (yaP > maximoAPedir && maximoAPedir > 0) {
-				bloquearFilaCompras((TextField) ctrl[3], (Button) ctrl[4], (TextField) ctrl[5], (Button) ctrl[6]);
+			if (salidaV > 0 && prepV >= salidaV) {
+				// Bloquear PEDIR
+				tfPedirCtrl.setEditable(false);
+				tfPedirCtrl.setStyle(
+						"-fx-background-color: #f1f2f6; -fx-text-fill: #7f8c8d; " + "-fx-border-color: transparent;");
+				btnPedirCtrl.setDisable(true);
+				btnPedirCtrl.setStyle("-fx-background-color: #bdc3c7; -fx-text-fill: white; "
+						+ "-fx-font-weight: bold; -fx-font-size: 11px; "
+						+ "-fx-background-radius: 6; -fx-padding: 4 10;");
+
+				// Bloquear también QUITAR
+				tfQuitarCtrl.setEditable(false);
+				tfQuitarCtrl.setStyle(
+						"-fx-background-color: #f1f2f6; -fx-text-fill: #7f8c8d; " + "-fx-border-color: transparent;");
+				btnQuitarCtrl.setDisable(true);
+				btnQuitarCtrl.setStyle("-fx-background-color: #bdc3c7; -fx-text-fill: white; "
+						+ "-fx-font-weight: bold; -fx-font-size: 11px; "
+						+ "-fx-background-radius: 6; -fx-padding: 4 10;");
 			}
 		}
 
@@ -1285,19 +1359,6 @@ public class Controlador {
 		botonAplicar.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
 			event.consume();
 
-			// ── Primero dispara todos los botones Validar y Quitar pendientes ──
-			for (Object[] ctrl : filaControles) {
-				TextField tfPedirCtrl = (TextField) ctrl[3];
-				Button btnValidarCtrl = (Button) ctrl[4];
-				TextField tfQuitarCtrl = (TextField) ctrl[5];
-				Button btnQuitarCtrl = (Button) ctrl[6];
-
-				if (parseEntero(tfPedirCtrl.getText()) > 0 && !btnValidarCtrl.isDisabled())
-					btnValidarCtrl.fire();
-
-				if (parseEntero(tfQuitarCtrl.getText()) > 0 && !btnQuitarCtrl.isDisabled())
-					btnQuitarCtrl.fire();
-			}
 			// ── Luego guarda el estado actual en MongoDB ───────────────────────
 			List<Document> nuevaLista = new java.util.ArrayList<>();
 			for (Object[] ctrl : filaControles) {
@@ -1312,6 +1373,23 @@ public class Controlador {
 			vista.setEstado("💾 Compras guardadas.");
 		});
 		// ── Botón OK (guarda y cierra) ────────────────────────────────────────
+
+		// ── Interceptar OK para avisar de campos pendientes ──────────────────
+		Button botonSalir = (Button) dialog.getDialogPane().lookupButton(btnTypeSalir);
+		botonSalir.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
+			boolean hayPendientes = filaControles.stream().anyMatch(ctrl -> {
+				int pedir = parseEntero(((TextField) ctrl[3]).getText());
+				int quitar = parseEntero(((TextField) ctrl[5]).getText());
+				return pedir > 0 || quitar > 0;
+			});
+			if (hayPendientes) {
+				boolean continuar = vista.confirmarAdvertencia("Cantidades no guardadas",
+						"Tienes cantidades no guardadas.\nSi continúas perderás la información.\n¿Estás seguro de salir?");
+				if (!continuar)
+					event.consume();
+			}
+		});
+
 		dialog.setResultConverter(btn -> {
 			if (btn != ButtonType.OK)
 				return null;
@@ -1324,6 +1402,12 @@ public class Controlador {
 						new Document(mOrig).append("pedidoCompleto2", pedidoCompleto).append("fechaPedido", fecha));
 			}
 			return nuevaLista;
+		});
+
+		Button botonCancelar = (Button) dialog.getDialogPane().lookupButton(btnTypeCancelar);
+		botonCancelar.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
+			event.consume();
+			dialog.getDialogPane().getScene().getWindow().hide();
 		});
 
 		final String refFinal = ref;
@@ -1863,6 +1947,183 @@ public class Controlador {
 		new Thread(tarea).start();
 	}
 
+	private void mostrarTablaResultadosConEdicion(String titulo, List<Document> datos, String[] columnas,
+			String[] llaves) {
+		if (datos == null || datos.isEmpty()) {
+			vista.mostrarAlerta("Información", "No se encontraron resultados.");
+			return;
+		}
+
+		ultimosDatosOriginales = new java.util.ArrayList<>(datos);
+		ultimasColumnas = columnas;
+		ultimasLlaves = llaves;
+		ultimoTitulo = titulo;
+
+		vista.setContenidoCentral(construirTablaVBoxConEdicion(titulo, datos, columnas, llaves));
+	}
+
+	@SuppressWarnings("deprecation")
+	private VBox construirTablaVBoxConEdicion(String titulo, List<Document> datos, String[] columnas, String[] llaves) {
+
+		VBox contenedorPrincipal = new VBox(0);
+		contenedorPrincipal.setStyle("-fx-background-color: white; -fx-background-radius: 15; "
+				+ "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.15), 15, 0, 0, 8);");
+
+		HBox cabeceraColor = new HBox();
+		cabeceraColor.setPadding(new Insets(15, 25, 15, 25));
+		cabeceraColor.setStyle("-fx-background-color: linear-gradient(to right, #2c3e50, #4b6584);"
+				+ "-fx-background-radius: 15 15 0 0;");
+		Label lblTit = new Label(titulo.toUpperCase());
+		lblTit.setStyle("-fx-text-fill: white; -fx-font-weight: 900; -fx-font-size: 15px;");
+		cabeceraColor.getChildren().add(lblTit);
+
+		TableView<Document> tabla = new TableView<>();
+		tabla.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+		tabla.setMinHeight(550);
+		tabla.getSelectionModel().setCellSelectionEnabled(true);
+		tabla.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+		tabla.setOnKeyPressed(e -> {
+			if (e.isControlDown() && e.getCode() == javafx.scene.input.KeyCode.C)
+				copiarSeleccionAlPortapapeles(tabla);
+		});
+
+		ContextMenu menu = new ContextMenu();
+		MenuItem itemCopiar = new MenuItem("📋 Copiar para Excel");
+		itemCopiar.setStyle("-fx-font-weight: bold;");
+		itemCopiar.setOnAction(e -> copiarSeleccionAlPortapapeles(tabla));
+		menu.getItems().add(itemCopiar);
+		tabla.setContextMenu(menu);
+
+		// ── Columnas de datos ────────────────────────────────────────────────
+		for (int i = 0; i < columnas.length; i++) {
+			final String llave = llaves[i];
+			TableColumn<Document, Object> col = new TableColumn<>();
+			Label lblHeader = new Label(columnas[i]);
+			lblHeader.setStyle("-fx-text-fill: #000000; -fx-font-weight: 900; -fx-font-size: 11px;");
+			col.setGraphic(lblHeader);
+
+			switch (llave) {
+			case "obra" -> col.setPrefWidth(130);
+			case "cliente" -> col.setPrefWidth(180);
+			case "proyecto" -> col.setPrefWidth(200);
+			case "entrega" -> col.setPrefWidth(110);
+			case "responsable" -> col.setPrefWidth(140);
+			case "fechaAlta" -> col.setPrefWidth(140);
+			default -> col.setPrefWidth(150);
+			}
+
+			col.setCellValueFactory(d -> new javafx.beans.property.SimpleObjectProperty<>(d.getValue().get(llave)));
+			col.setCellFactory(column -> new TableCell<>() {
+				@Override
+				protected void updateItem(Object item, boolean empty) {
+					super.updateItem(item, empty);
+					if (empty || item == null) {
+						setText(null);
+						setStyle("");
+					} else {
+						setText(item.toString());
+						setStyle("-fx-text-fill: #2c3e50; -fx-font-weight: bold;");
+					}
+				}
+			});
+			tabla.getColumns().add(col);
+		}
+
+		// ── Columna VER (resumen) ────────────────────────────────────────────
+		TableColumn<Document, Void> colVer = new TableColumn<>();
+		Label lblVer = new Label("VER");
+		lblVer.setStyle("-fx-font-weight: bold; -fx-text-fill: #57606f; -fx-font-size: 11px;");
+		colVer.setGraphic(lblVer);
+		colVer.setPrefWidth(70);
+		colVer.setCellFactory(col -> new TableCell<>() {
+			private final Button btn = new Button("Ver →");
+			{
+				btn.setStyle("-fx-background-color: #2980b9; -fx-text-fill: white; "
+						+ "-fx-font-size: 10px; -fx-font-weight: bold; "
+						+ "-fx-background-radius: 5; -fx-cursor: hand; -fx-padding: 3 8;");
+				btn.setOnAction(e -> {
+					Document doc = getTableView().getItems().get(getIndex());
+					Document obraDoc = coleccion.find(eq("obra", doc.getString("obra"))).first();
+					if (obraDoc != null)
+						VentanaResumenObra.mostrar(obraDoc);
+				});
+			}
+
+			@Override
+			protected void updateItem(Void item, boolean empty) {
+				super.updateItem(item, empty);
+				setGraphic(empty ? null : btn);
+			}
+		});
+		tabla.getColumns().add(colVer);
+
+		// ── Columna EDITAR ───────────────────────────────────────────────────
+		// ── Columna EDITAR ───────────────────────────────────────────────────
+		TableColumn<Document, Void> colEditar = new TableColumn<>();
+		Label lblEditar = new Label("EDITAR");
+		lblEditar.setStyle("-fx-font-weight: bold; -fx-text-fill: #57606f; -fx-font-size: 11px;");
+		colEditar.setGraphic(lblEditar);
+		colEditar.setPrefWidth(80);
+		colEditar.setCellFactory(col -> new TableCell<>() {
+			private final Button btn = new Button("✏ Editar");
+			{
+				btn.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; "
+						+ "-fx-font-size: 10px; -fx-font-weight: bold; "
+						+ "-fx-background-radius: 5; -fx-cursor: hand; -fx-padding: 3 8;");
+				btn.setOnAction(e -> {
+					Document doc = getTableView().getItems().get(getIndex());
+					String ref = doc.getString("obra");
+					if (ref != null && !ref.isEmpty()) {
+						vista.setInputTexto(ref);
+						onActualizar();
+						onListarObras(); // ← añade esta línea
+					}
+				});
+			}
+
+			@Override
+			protected void updateItem(Void item, boolean empty) {
+				super.updateItem(item, empty);
+				setGraphic(empty ? null : btn);
+			}
+		});
+		tabla.getColumns().add(colEditar);
+		// ── Columna COMPRAS ──────────────────────────────────────────────────
+		TableColumn<Document, Void> colCompras = new TableColumn<>();
+		Label lblCompras = new Label("COMPRAS");
+		lblCompras.setStyle("-fx-font-weight: bold; -fx-text-fill: #57606f; -fx-font-size: 11px;");
+		colCompras.setGraphic(lblCompras);
+		colCompras.setPrefWidth(90);
+		colCompras.setCellFactory(col -> new TableCell<>() {
+			private final Button btn = new Button("🛒 Compras");
+			{
+				btn.setStyle("-fx-background-color: #e67e22; -fx-text-fill: white; "
+						+ "-fx-font-size: 10px; -fx-font-weight: bold; "
+						+ "-fx-background-radius: 5; -fx-cursor: hand; -fx-padding: 3 8;");
+				btn.setOnAction(e -> {
+					Document doc = getTableView().getItems().get(getIndex());
+					String ref = doc.getString("obra");
+					if (ref != null && !ref.isEmpty()) {
+						vista.setInputTexto(ref);
+						onCompras();
+						onListarObras(); // ← añade esta línea
+					}
+				});
+			}
+
+			@Override
+			protected void updateItem(Void item, boolean empty) {
+				super.updateItem(item, empty);
+				setGraphic(empty ? null : btn);
+			}
+		});
+		tabla.getColumns().add(colCompras);
+
+		tabla.getItems().addAll(datos);
+		contenedorPrincipal.getChildren().addAll(cabeceraColor, tabla);
+		return contenedorPrincipal;
+	}
+
 	private void bloquearFila(TextField tfServir, TextField tfPrep, Button btnValidar, TextField tfQuitar,
 			Button btnQuitar) {
 		String estiloLocked = "-fx-background-color: #f1f2f6; -fx-text-fill: #7f8c8d;";
@@ -1939,5 +2200,134 @@ public class Controlador {
 		if (mats == null || indice >= mats.size())
 			return null;
 		return mats.get(indice);
+	}
+
+	private void onInformePendientes() {
+		vista.setEstado("⏳ Generando informe de artículos pendientes...");
+
+		Task<List<InformePendientes.FilaInforme>> tarea = new Task<>() {
+			@Override
+			protected List<InformePendientes.FilaInforme> call() {
+				return InformePendientes.obtenerPendientes(coleccion);
+			}
+		};
+
+		tarea.setOnSucceeded(e -> {
+			List<InformePendientes.FilaInforme> filas = tarea.getValue();
+
+			if (filas.isEmpty()) {
+				vista.mostrarAlerta("Informe Pendientes", "✅ No hay artículos pendientes. ¡Todo está preparado!");
+				vista.setEstado("✅ Sin artículos pendientes.");
+				return;
+			}
+
+			// Construye y muestra la vista del informe en el panel central
+			VBox vistaInforme = InformePendientes.construirVistaInforme(filas, vista, coleccion);
+			vista.setContenidoCentral(vistaInforme);
+			vista.setEstado("📦 Informe pendientes: " + filas.size() + " artículo(s) en "
+					+ filas.stream().map(f -> f.obra).distinct().count() + " obra(s).");
+		});
+
+		tarea.setOnFailed(e -> vista.setEstado("❌ Error al generar el informe: " + tarea.getException().getMessage()));
+
+		new Thread(tarea).start();
+	}
+
+	private void onInformeFueraDePlazo() {
+		vista.setEstado("⏳ Generando informe de artículos fuera de plazo...");
+
+		Task<List<InformeFueraDePlazo.FilaInforme>> tarea = new Task<>() {
+			@Override
+			protected List<InformeFueraDePlazo.FilaInforme> call() {
+				return InformeFueraDePlazo.obtenerFueraDePlazo(coleccion);
+			}
+		};
+
+		tarea.setOnSucceeded(e -> {
+			List<InformeFueraDePlazo.FilaInforme> filas = tarea.getValue();
+
+			if (filas.isEmpty()) {
+				vista.mostrarAlerta("Informe Fuera de Plazo",
+						"✅ No hay artículos fuera de plazo. ¡Todo está en fecha!");
+				vista.setEstado("✅ Sin artículos fuera de plazo.");
+				return;
+			}
+
+			VBox vistaInforme = InformeFueraDePlazo.construirVistaInforme(filas, vista, coleccion);
+			vista.setContenidoCentral(vistaInforme);
+			vista.setEstado("⚠ Fuera de plazo: " + filas.size() + " artículo(s) en "
+					+ filas.stream().map(f -> f.obra).distinct().count() + " obra(s).");
+		});
+
+		tarea.setOnFailed(e -> vista.setEstado("❌ Error al generar el informe: " + tarea.getException().getMessage()));
+
+		new Thread(tarea).start();
+	}
+
+	// ── Campo de instancia ────────────────────────────────────────────────────
+	private final java.util.concurrent.ScheduledExecutorService scheduler = java.util.concurrent.Executors
+			.newSingleThreadScheduledExecutor();
+
+	// ═════════════════════════════════════════════════════════════════════════
+	// AUTO-REFRESCO (cada 30 segundos)
+	// ═════════════════════════════════════════════════════════════════════════
+	private void iniciarAutoRefresco() {
+		scheduler.scheduleAtFixedRate(() -> {
+			Platform.runLater(() -> {
+				actualizarMetricasDashboard();
+
+				// Si hay una tabla visible, recargarla
+				if (ultimoTitulo != null && ultimosDatosOriginales != null) {
+					// Recargar datos frescos desde MongoDB según el título activo
+					if (ultimoTitulo.startsWith("Listado General")) {
+						List<Document> obras = new java.util.ArrayList<>();
+						try (MongoCursor<Document> cursor = coleccion.find().iterator()) {
+							while (cursor.hasNext())
+								obras.add(cursor.next());
+						}
+						ultimosDatosOriginales = obras;
+						vista.setContenidoCentral(
+								construirTablaVBoxConEdicion(ultimoTitulo, obras, ultimasColumnas, ultimasLlaves));
+					}
+					// Si es detalle de obra, extraer la ref del título y recargar
+					else if (ultimoTitulo.startsWith("Detalle Obra:")) {
+						String ref = ultimoTitulo.split(":")[1].split("\\|")[0].trim();
+						List<Document> mats = obtenerMaterialesParaVista(ref);
+						if (mats != null) {
+							ultimosDatosOriginales = mats;
+							vista.setContenidoCentral(
+									construirTablaVBox(ultimoTitulo, mats, ultimasColumnas, ultimasLlaves, false));
+						}
+					}
+				}
+			});
+		}, 30, 30, java.util.concurrent.TimeUnit.SECONDS);
+	}
+
+	// Helper: recarga materiales de una obra con los cálculos de
+	// falta/pedidoCompleto
+	private List<Document> obtenerMaterialesParaVista(String ref) {
+		Document doc = coleccion.find(com.mongodb.client.model.Filters.eq("obra", ref)).first();
+		if (doc == null)
+			return null;
+		List<Document> materialesOriginales = doc.getList("materiales", Document.class);
+		if (materialesOriginales == null)
+			return null;
+
+		List<Document> materiales = new java.util.ArrayList<>();
+		for (Document m : materialesOriginales) {
+			Document copia = new Document(m);
+			int salida = copia.getInteger("salidaUnidad", 0);
+			int preparado = parseEntero(copia.getOrDefault("preparado", "0").toString());
+			int falta = Math.max(0, salida - preparado);
+			copia.put("falta", falta);
+			copia.put("pedidoCompleto", (falta == 0 && salida > 0) ? "✔" : "✘");
+			materiales.add(copia);
+		}
+		return materiales;
+	}
+
+	public void detenerRefresco() {
+		scheduler.shutdownNow();
 	}
 }

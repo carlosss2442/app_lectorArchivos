@@ -19,7 +19,7 @@ public class Vista {
 	private final Button btnBuscarObra = new Button("🔍 Buscar Obra");
 	private final Button btnAgregarFila = new Button("➕ Añadir Material");
 	private final Button btnEliminarFila = new Button("🗑 Eliminar Material");
-	private final Button btnActualizar = new Button("✏️ Editar Material");
+	private final Button btnActualizar = new Button("✏️ Servir Material");
 	private final Button btnEliminarObra = new Button("❌ Eliminar Obra");
 	private final Button btnLimpiarInput = new Button("🧹 Limpiar Pantalla");
 	private final Button btnCompras = new Button("🛒 Compras");
@@ -35,8 +35,12 @@ public class Vista {
 
 	// Contenedor principal para tablas y bienvenida
 	private final VBox contenedorDinamico = new VBox(15);
+	private final Button btnInformePendientes = new Button("📦 Artículos Pendientes");
+	// private final Button btnEtiquetas = new Button("🏷 Imprimir Etiquetas / QR");
 
-	//private final Button btnEtiquetas = new Button("🏷 Imprimir Etiquetas / QR");
+	// Botón para marcar obras fuera de plazo (solo visual, sin funcionalidad
+	// implementada)
+	private final Button btnFueraDePlazo = new Button("🚨 Fuera de Plazo");
 
 	public Scene construirEscena() {
 		// Colores y Estilos
@@ -50,7 +54,7 @@ public class Vista {
 		sidebar.setPadding(new Insets(10, 0, 0, 0));
 
 		configurarBotonesSidebar(btnListarObras, btnImportar, btnExportar, btnAgregarFila, btnActualizar,
-				btnEliminarFila, btnEliminarObra, btnBuscarObra, btnCompras);
+				btnEliminarFila, btnEliminarObra, btnBuscarObra, btnCompras, btnInformePendientes, btnFueraDePlazo);
 
 		Region espaciadorVertical = new Region();
 		VBox.setVgrow(espaciadorVertical, Priority.ALWAYS);
@@ -81,8 +85,8 @@ public class Vista {
 		sidebar.getChildren().addAll(crearEtiquetaSeccion("ARCHIVO Y LISTADO"), btnListarObras, btnImportar,
 				btnExportar, new Separator(), crearEtiquetaSeccion("GESTIÓN Y EDICIÓN (Logistica)"), btnAgregarFila,
 				btnActualizar, btnEliminarFila, btnEliminarObra, new Separator(),
-				crearEtiquetaSeccion("LISTADOS (Dep. Informatica)"), btnBuscarObra, new Separator(),
-				crearEtiquetaSeccion("COMPRAS"), btnCompras, espaciadorVertical, bloqueContacto);
+				crearEtiquetaSeccion("LISTADOS (Dep. Informatica)"), btnBuscarObra, btnInformePendientes, btnFueraDePlazo,
+				new Separator(), crearEtiquetaSeccion("COMPRAS"), btnCompras, espaciadorVertical, bloqueContacto);
 		// --- BARRA SUPERIOR ---
 		HBox topBar = new HBox(15);
 		topBar.setPadding(new Insets(15, 25, 15, 25));
@@ -142,34 +146,36 @@ public class Vista {
 		layout.setBottom(barraEstado);
 
 		return new Scene(layout, 1350, 850);
+		
+	
 	}
 
 	private void mostrarPantallaBienvenida() {
-	    contenedorDinamico.getChildren().clear();
-	    contenedorDinamico.setAlignment(Pos.CENTER);
+		contenedorDinamico.getChildren().clear();
+		contenedorDinamico.setAlignment(Pos.CENTER);
 
-	    var stream = getClass().getResourceAsStream("/logo.jpg");
-	    
-	    if (stream != null) {
-	        ImageView logoGrande = new ImageView(new Image(stream));
-	        logoGrande.setFitWidth(450);
-	        logoGrande.setPreserveRatio(true);
-	        logoGrande.setSmooth(true);
+		var stream = getClass().getResourceAsStream("/logo.jpg");
 
-	        Label lblB1 = new Label("BIENVENIDO A GESTIÓN DE MATERIALES TECNOMAT");
-	        lblB1.setStyle("-fx-text-fill: #2c3e50; -fx-font-size: 26px; -fx-font-weight: 900; -fx-padding: 20 0 5 0;");
+		if (stream != null) {
+			ImageView logoGrande = new ImageView(new Image(stream));
+			logoGrande.setFitWidth(450);
+			logoGrande.setPreserveRatio(true);
+			logoGrande.setSmooth(true);
 
-	        Label lblB2 = new Label("Seleccione una operación en el menú lateral para gestionar la base de datos");
-	        lblB2.setStyle("-fx-text-fill: #7f8c8d; -fx-font-size: 15px;");
+			Label lblB1 = new Label("BIENVENIDO A GESTIÓN DE MATERIALES TECNOMAT");
+			lblB1.setStyle("-fx-text-fill: #2c3e50; -fx-font-size: 26px; -fx-font-weight: 900; -fx-padding: 20 0 5 0;");
 
-	        contenedorDinamico.getChildren().addAll(logoGrande, lblB1, lblB2);
-	    } else {
-	        // Si llega aquí, logo.jpg NO está dentro del JAR
-	        System.err.println("❌ ERROR: /logo.jpg no encontrado en el classpath");
-	        Label lblError = new Label("GESTIÓN DE MATERIALES");
-	        lblError.setStyle("-fx-font-size: 60px; -fx-font-weight: 900; -fx-text-fill: #dfe4ea;");
-	        contenedorDinamico.getChildren().add(lblError);
-	    }
+			Label lblB2 = new Label("Seleccione una operación en el menú lateral para gestionar la base de datos");
+			lblB2.setStyle("-fx-text-fill: #7f8c8d; -fx-font-size: 15px;");
+
+			contenedorDinamico.getChildren().addAll(logoGrande, lblB1, lblB2);
+		} else {
+			// Si llega aquí, logo.jpg NO está dentro del JAR
+			System.err.println("❌ ERROR: /logo.jpg no encontrado en el classpath");
+			Label lblError = new Label("GESTIÓN DE MATERIALES");
+			lblError.setStyle("-fx-font-size: 60px; -fx-font-weight: 900; -fx-text-fill: #dfe4ea;");
+			contenedorDinamico.getChildren().add(lblError);
+		}
 	}
 
 	public void setContenidoCentral(javafx.scene.Node nodo) {
@@ -243,6 +249,13 @@ public class Vista {
 			lblNumMateriales.setText(String.format("%,d", materiales));
 			lblNumAlertas.setText(String.valueOf(alertas));
 		});
+	}
+
+	public boolean confirmarAdvertencia(String titulo, String mensaje) {
+		Alert a = new Alert(Alert.AlertType.WARNING, mensaje, ButtonType.YES, ButtonType.NO);
+		a.setTitle(titulo);
+		a.setHeaderText(null);
+		return a.showAndWait().orElse(ButtonType.NO) == ButtonType.YES;
 	}
 
 	public void limpiar() {
@@ -323,8 +336,20 @@ public class Vista {
 	 * public Button getBtnEtiquetas() { return btnEtiquetas; }
 	 */
 
+	public void setInputTexto(String texto) {
+		txtInput.setText(texto);
+	}
+
 	public void setOnInputChange(javafx.beans.value.ChangeListener<String> listener) {
 		txtInput.textProperty().addListener(listener);
+	}
+
+	public Button getBtnInformePendientes() {
+		return btnInformePendientes;
+	}
+
+	public Button getBtnFueraDePlazo() {
+		return btnFueraDePlazo;
 	}
 
 	public void setInputFiltrandoEstilo(boolean filtrando) {
@@ -335,5 +360,7 @@ public class Vista {
 			txtInput.setStyle("-fx-background-radius: 20; -fx-border-radius: 20; -fx-padding: 0 15;");
 		}
 	}
+	
+	
 
 }
