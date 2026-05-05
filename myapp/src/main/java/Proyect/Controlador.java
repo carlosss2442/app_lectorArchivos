@@ -954,12 +954,6 @@ public class Controlador {
 
 		});
 
-		dialog.setResultConverter(btn -> {
-			if (btn != ButtonType.OK)
-				return null;
-			return construirListaFresca.get();
-		});
-
 		// ── Interceptar OK para avisar de campos pendientes ──────────────────
 		Button botonSalir = (Button) dialog.getDialogPane().lookupButton(btnTypeSalir);
 		botonSalir.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
@@ -1378,9 +1372,9 @@ public class Controlador {
 		Button botonSalir = (Button) dialog.getDialogPane().lookupButton(btnTypeSalir);
 		botonSalir.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
 			boolean hayPendientes = filaControles.stream().anyMatch(ctrl -> {
-				int pedir = parseEntero(((TextField) ctrl[3]).getText());
+				int servir = parseEntero(((TextField) ctrl[3]).getText());
 				int quitar = parseEntero(((TextField) ctrl[5]).getText());
-				return pedir > 0 || quitar > 0;
+				return servir > 0 || quitar > 0;
 			});
 			if (hayPendientes) {
 				boolean continuar = vista.confirmarAdvertencia("Cantidades no guardadas",
@@ -1391,23 +1385,41 @@ public class Controlador {
 		});
 
 		dialog.setResultConverter(btn -> {
-			if (btn != ButtonType.OK)
-				return null;
-			List<Document> nuevaLista = new java.util.ArrayList<>();
-			for (Object[] ctrl : filaControles) {
-				Document mOrig = (Document) ctrl[0];
-				int pedidoCompleto = parseEntero(((TextField) ctrl[1]).getText());
-				String fecha = ((Label) ctrl[2]).getText();
-				nuevaLista.add(
-						new Document(mOrig).append("pedidoCompleto2", pedidoCompleto).append("fechaPedido", fecha));
+			if (btn == btnTypeSalir) {
+				// construir y devolver lista (o null si quieres solo cerrar)
+				List<Document> nuevaLista = new java.util.ArrayList<>();
+				for (Object[] ctrl : filaControles) {
+					Document mOrig = (Document) ctrl[0];
+					int pedidoCompleto = parseEntero(((TextField) ctrl[1]).getText());
+					String fecha = ((Label) ctrl[2]).getText();
+					nuevaLista.add(
+							new Document(mOrig).append("pedidoCompleto2", pedidoCompleto).append("fechaPedido", fecha));
+				}
+				return nuevaLista;
 			}
-			return nuevaLista;
+			return null; // Cancelar y cualquier otro botón → no hace nada
 		});
 
 		Button botonCancelar = (Button) dialog.getDialogPane().lookupButton(btnTypeCancelar);
 		botonCancelar.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
 			event.consume();
 			dialog.getDialogPane().getScene().getWindow().hide();
+		});
+
+		dialog.setOnShown(ev -> {
+			dialog.getDialogPane().getScene().getWindow().setOnCloseRequest(event -> {
+				boolean hayPendientes = filaControles.stream().anyMatch(ctrl -> {
+					int pedir = parseEntero(((TextField) ctrl[3]).getText());
+					int quitar = parseEntero(((TextField) ctrl[5]).getText());
+					return pedir > 0 || quitar > 0;
+				});
+				if (hayPendientes) {
+					boolean continuar = vista.confirmarAdvertencia("Cantidades no guardadas",
+							"Tienes cantidades no guardadas.\nSi continúas perderás la información.\n¿Estás seguro de salir?");
+					if (!continuar)
+						event.consume();
+				}
+			});
 		});
 
 		final String refFinal = ref;

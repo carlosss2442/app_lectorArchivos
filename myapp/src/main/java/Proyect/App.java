@@ -23,7 +23,7 @@ public class App extends Application {
 		MongoCollection<Document> coleccion = database.getCollection("refObras");
 		// mongodb+srv://tecnomatDB:tecnomatAppCat@cluster0.0lj80bm.mongodb.net/?appName=Cluster0
 		Vista vista = new Vista();
-		controlador = new Controlador(vista, coleccion); // ← guarda la referencia
+		controlador = new Controlador(vista, coleccion);
 
 		stage.setScene(vista.construirEscena());
 		stage.setTitle("GESTIÓN DE MATERIALES");
@@ -34,7 +34,7 @@ public class App extends Application {
 	@Override
 	public void stop() {
 		if (controlador != null)
-			controlador.detenerRefresco(); // ← para el hilo antes de cerrar
+			controlador.detenerRefresco(); 
 		if (mongoClient != null)
 			mongoClient.close();
 	}
