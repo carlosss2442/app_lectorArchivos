@@ -517,6 +517,7 @@ public class Controlador {
 			vista.mostrarAlerta("Error", "El A3 no existe en esa obra.");
 			return;
 		}
+
 		if (vista.confirmar("¿Eliminar la fila A3=" + a3 + " de la obra " + ref + "?")) {
 			coleccion.updateOne(eq("obra", ref),
 					new Document("$pull", new Document("materiales", new Document("A3", a3))));
@@ -568,7 +569,7 @@ public class Controlador {
 		lblSub.setStyle("-fx-text-fill: #a4b0be; -fx-font-size: 13px;");
 		cabeceraDialogo.getChildren().addAll(lblTitulo, lblSub);
 
-		double[] colWidths = { 55, 130, 250, 80, 80, 80, 90, 80, 80, 80, 90 };
+		double[] colWidths = { 55, 130, 250, 80, 80, 80, 90, 80, 80, 80, 100 };
 
 		GridPane gridHeader = new GridPane();
 		gridHeader.setHgap(10);
@@ -576,7 +577,7 @@ public class Controlador {
 		gridHeader.setStyle("-fx-background-color: #f1f2f6; -fx-border-color: #dfe4ea; -fx-border-width: 0 0 1 0;");
 
 		String[] headers = { "A3", "REFERENCIA 🔒", "DESCRIPCIÓN 🔒", "UNIDAD 🔒", "PENDIENTE", "SERVIR", "AÑADIR",
-				"PREPARADO 🔒", "QUITAR", "ELIMINAR", "CANT. PEDIDO 🔒" };
+				"PREPARADO 🔒", "QUITAR", "ELIMINAR", "PEND. DE RECIBIR 🔒" };
 
 		for (int i = 0; i < headers.length; i++) {
 			Label l = new Label(headers[i]);
@@ -1648,7 +1649,7 @@ public class Controlador {
 			Task<Void> tarea = new Task<>() {
 				@Override
 				protected Void call() throws Exception {
-					EtiquetaQR.generarHojaEtiquetas(refFinal, cliente, listaFinal, archivo);
+					 
 					return null;
 				}
 			};
@@ -2313,7 +2314,7 @@ public class Controlador {
 					}
 				}
 			});
-		}, 30, 30, java.util.concurrent.TimeUnit.SECONDS);
+		}, 30, 60, java.util.concurrent.TimeUnit.SECONDS);
 	}
 
 	// Helper: recarga materiales de una obra con los cálculos de

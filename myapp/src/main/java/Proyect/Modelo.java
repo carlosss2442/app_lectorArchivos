@@ -407,6 +407,7 @@ public class Modelo {
 		return formatter.formatCellValue(celda).trim();
 	}
 
+	
 	private static String buscarValorSiguiente(Row row, int desdeCol) {
 		for (int c = desdeCol + 1; c <= row.getLastCellNum(); c++) {
 			String val = obtenerValorCelda(row.getCell(c));
@@ -428,7 +429,7 @@ public class Modelo {
 		fileChooser.setTitle("Selecciona el archivo Excel (.xlsx)");
 		fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Archivos Excel (*.xlsx)", "*.xlsx"));
 		return fileChooser.showOpenDialog(null);
-	}
+	} 
 
 	public static void importarExcelAMongo(File archivo, MongoCollection<Document> coleccion) throws Exception {
 		if (archivo == null)

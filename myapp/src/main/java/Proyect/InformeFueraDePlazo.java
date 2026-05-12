@@ -209,13 +209,13 @@ public class InformeFueraDePlazo {
 						VentanaResumenObra.mostrar(obraDoc);
 				});
 			}
-
+  
 			@Override
 			protected void updateItem(Void item, boolean empty) {
 				super.updateItem(item, empty);
 				setGraphic(empty ? null : btn);
 			}
-		});
+		});  
 		
 		tabla.getColumns().addAll(colTexto("OBRA", 110, f -> f.obra), colTexto("CLIENTE", 130, f -> f.cliente),
 				colTexto("PROYECTO", 160, f -> f.proyecto), colTexto("F. ENTREGA", 95, f -> f.entrega), colRetraso(),
