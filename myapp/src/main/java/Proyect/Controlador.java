@@ -25,6 +25,7 @@ public class Controlador {
 
 	private final Vista vista;
 	private final MongoCollection<Document> coleccion;
+	private final MongoCollection<Document> coleccionOrdenes;
 
 	// ── Estado del último resultado mostrado (para filtro en tiempo real) ─────
 	private List<Document> ultimosDatosOriginales = null;
@@ -32,9 +33,12 @@ public class Controlador {
 	private String[] ultimasLlaves = null;
 	private String ultimoTitulo = null;
 
-	public Controlador(Vista vista, MongoCollection<Document> coleccion) {
+	public Controlador(Vista vista, MongoCollection<Document> coleccion, MongoCollection<Document> coleccionOrdenes) { // ←
+																														// parámetro
+																														// nuevo
 		this.vista = vista;
 		this.coleccion = coleccion;
+		this.coleccionOrdenes = coleccionOrdenes; // ← asignación nueva
 		registrarEventos();
 		actualizarMetricasDashboard();
 		iniciarAutoRefresco();
@@ -59,6 +63,7 @@ public class Controlador {
 		vista.setOnInputChange((obs, oldVal, newVal) -> onFiltrarEnTiempoReal(newVal));
 		vista.getBtnInformePendientes().setOnAction(e -> onInformePendientes());
 		vista.getBtnFueraDePlazo().setOnAction(e -> onInformeFueraDePlazo());
+		vista.getBtnOrdenesTrabajos().setOnAction(e -> onOrdenesTrabajos());
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
@@ -1649,7 +1654,7 @@ public class Controlador {
 			Task<Void> tarea = new Task<>() {
 				@Override
 				protected Void call() throws Exception {
-					 
+
 					return null;
 				}
 			};
@@ -2273,6 +2278,32 @@ public class Controlador {
 		});
 
 		tarea.setOnFailed(e -> vista.setEstado("❌ Error al generar el informe: " + tarea.getException().getMessage()));
+
+		new Thread(tarea).start();
+	}
+
+	private void onOrdenesTrabajos() {
+		// Si hay texto en el input úsalo como filtro de obra; si no, muestra todo
+		String filtro = vista.getInput();
+
+		vista.setEstado("⏳ Cargando órdenes de trabajo...");
+
+		javafx.concurrent.Task<javafx.scene.layout.VBox> tarea = new javafx.concurrent.Task<>() {
+			@Override
+			protected javafx.scene.layout.VBox call() {
+				return OrdenesTrabajos.construirVista(coleccionOrdenes, coleccion, filtro);
+			}
+		};
+
+		tarea.setOnSucceeded(e -> {
+			vista.setContenidoCentral(tarea.getValue());
+			// Contar órdenes en la colección para el estado
+			long total = coleccionOrdenes.countDocuments();
+			vista.setEstado("📑 Órdenes de trabajo: " + total + " registro(s)"
+					+ (filtro.isBlank() ? "" : "  —  filtro: \"" + filtro + "\""));
+		});
+
+		tarea.setOnFailed(e -> vista.setEstado("❌ Error al cargar órdenes: " + tarea.getException().getMessage()));
 
 		new Thread(tarea).start();
 	}

@@ -18,12 +18,13 @@ public class App extends Application {
 	public void start(Stage stage) throws URISyntaxException {
 		String conexionAtlas = "mongodb+srv://tecnomatDB:tecnomatAppCat@cluster0.0lj80bm.mongodb.net/?appName=Cluster0";
 		mongoClient = MongoClients.create(conexionAtlas);
-
 		MongoDatabase database = mongoClient.getDatabase("Listados");
+
 		MongoCollection<Document> coleccion = database.getCollection("refObras");
-		// mongodb+srv://tecnomatDB:tecnomatAppCat@cluster0.0lj80bm.mongodb.net/?appName=Cluster0
+		MongoCollection<Document> coleccionOrdenes = database.getCollection("numero_ordenes_de_trabajos"); // ← NUEVA
+
 		Vista vista = new Vista();
-		controlador = new Controlador(vista, coleccion);
+		controlador = new Controlador(vista, coleccion, coleccionOrdenes); // ← pasa coleccionOrdenes
 
 		stage.setScene(vista.construirEscena());
 		stage.setTitle("GESTIÓN DE MATERIALES");
@@ -34,7 +35,7 @@ public class App extends Application {
 	@Override
 	public void stop() {
 		if (controlador != null)
-			controlador.detenerRefresco(); 
+			controlador.detenerRefresco();
 		if (mongoClient != null)
 			mongoClient.close();
 	}

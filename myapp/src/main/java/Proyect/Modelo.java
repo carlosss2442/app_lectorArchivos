@@ -407,7 +407,6 @@ public class Modelo {
 		return formatter.formatCellValue(celda).trim();
 	}
 
-	
 	private static String buscarValorSiguiente(Row row, int desdeCol) {
 		for (int c = desdeCol + 1; c <= row.getLastCellNum(); c++) {
 			String val = obtenerValorCelda(row.getCell(c));
@@ -429,7 +428,7 @@ public class Modelo {
 		fileChooser.setTitle("Selecciona el archivo Excel (.xlsx)");
 		fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Archivos Excel (*.xlsx)", "*.xlsx"));
 		return fileChooser.showOpenDialog(null);
-	} 
+	}
 
 	public static void importarExcelAMongo(File archivo, MongoCollection<Document> coleccion) throws Exception {
 		if (archivo == null)
@@ -462,10 +461,11 @@ public class Modelo {
 
 					if ((val.contains("REF") || val.contains("OBRA")) && !documentoPrincipal.containsKey("obra")) {
 						String v = buscarValorSiguiente(row, i);
-						if (!v.isEmpty())
-							documentoPrincipal.put("obra", v);
+						if (!v.isEmpty()) {
+							documentoPrincipal.put("obra", v); // se mantiene para compatibilidad interna
+							documentoPrincipal.put("orden", v); // nuevo campo para conectar con coleccionOrdenes
+						}
 					}
-
 					if (val.contains("CLIENTE") && !documentoPrincipal.containsKey("cliente")) {
 						documentoPrincipal.put("cliente", buscarValorSiguiente(row, i));
 						for (int j = i + 1; j < row.getLastCellNum(); j++) {

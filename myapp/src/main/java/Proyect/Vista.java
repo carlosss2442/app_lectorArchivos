@@ -23,6 +23,7 @@ public class Vista {
 	private final Button btnEliminarObra = new Button("❌ Eliminar Obra");
 	private final Button btnLimpiarInput = new Button("🧹 Limpiar Pantalla");
 	private final Button btnCompras = new Button("🛒 Compras");
+	private final Button btnOrdenesTrabajos = new Button("📑 Órdenes de Trabajo");
 	// private final Button btnSalir = new Button("🚪 Salir del Programa");
 
 	private final TextField txtInput = new TextField();
@@ -38,12 +39,9 @@ public class Vista {
 	private final Button btnInformePendientes = new Button("📦 Artículos Pendientes");
 	// private final Button btnEtiquetas = new Button("🏷 Imprimir Etiquetas / QR");
 
-	// Botón para marcar obras fuera de plazo (solo visual, sin funcionalidad
-	// implementada)
 	private final Button btnFueraDePlazo = new Button("🚨 Fuera de Plazo");
 
 	public Scene construirEscena() {
-		// Colores y Estilos
 		String estiloHeader = "-fx-background-color: linear-gradient(to right, #0f2027, #203a43, #2c5364);";
 		String estiloSidebar = "-fx-background-color: #1e272e;";
 
@@ -54,7 +52,8 @@ public class Vista {
 		sidebar.setPadding(new Insets(10, 0, 0, 0));
 
 		configurarBotonesSidebar(btnListarObras, btnImportar, btnExportar, btnAgregarFila, btnActualizar,
-				btnEliminarFila, btnEliminarObra, btnBuscarObra, btnCompras, btnInformePendientes, btnFueraDePlazo);
+				btnEliminarFila, btnEliminarObra, btnBuscarObra, btnCompras, btnInformePendientes, btnFueraDePlazo,
+				btnOrdenesTrabajos);
 
 		Region espaciadorVertical = new Region();
 		VBox.setVgrow(espaciadorVertical, Priority.ALWAYS);
@@ -85,8 +84,10 @@ public class Vista {
 		sidebar.getChildren().addAll(crearEtiquetaSeccion("ARCHIVO Y LISTADO"), btnListarObras, btnImportar,
 				btnExportar, new Separator(), crearEtiquetaSeccion("GESTIÓN Y EDICIÓN (Logistica)"), btnAgregarFila,
 				btnActualizar, btnEliminarFila, btnEliminarObra, new Separator(),
-				crearEtiquetaSeccion("LISTADOS (Dep. Informatica)"), btnBuscarObra, btnInformePendientes, btnFueraDePlazo,
-				new Separator(), crearEtiquetaSeccion("COMPRAS"), btnCompras, espaciadorVertical, bloqueContacto);
+				crearEtiquetaSeccion("LISTADOS (Dep. Informatica)"), btnBuscarObra, btnInformePendientes,
+				btnFueraDePlazo, new Separator(), crearEtiquetaSeccion("COMPRAS"), btnCompras, new Separator(),
+				crearEtiquetaSeccion("ÓRDENES"), btnOrdenesTrabajos, espaciadorVertical, bloqueContacto);
+
 		// --- BARRA SUPERIOR ---
 		HBox topBar = new HBox(15);
 		topBar.setPadding(new Insets(15, 25, 15, 25));
@@ -120,7 +121,6 @@ public class Vista {
 				crearTarjetaMetrica("Total Materiales", lblNumMateriales, "#2ed573"),
 				crearTarjetaMetrica("Alertas (Falta)", lblNumAlertas, "#ff4757"));
 
-		// Contenedor dinámico (Inicia con Pantalla de Bienvenida)
 		mostrarPantallaBienvenida();
 		VBox.setVgrow(contenedorDinamico, Priority.ALWAYS);
 
@@ -146,8 +146,6 @@ public class Vista {
 		layout.setBottom(barraEstado);
 
 		return new Scene(layout, 1350, 850);
-		
-	
 	}
 
 	private void mostrarPantallaBienvenida() {
@@ -170,7 +168,6 @@ public class Vista {
 
 			contenedorDinamico.getChildren().addAll(logoGrande, lblB1, lblB2);
 		} else {
-			// Si llega aquí, logo.jpg NO está dentro del JAR
 			System.err.println("❌ ERROR: /logo.jpg no encontrado en el classpath");
 			Label lblError = new Label("GESTIÓN DE MATERIALES");
 			lblError.setStyle("-fx-font-size: 60px; -fx-font-weight: 900; -fx-text-fill: #dfe4ea;");
@@ -180,7 +177,7 @@ public class Vista {
 
 	public void setContenidoCentral(javafx.scene.Node nodo) {
 		contenedorDinamico.getChildren().clear();
-		contenedorDinamico.setAlignment(Pos.TOP_CENTER); // Al cargar tablas, alinear arriba
+		contenedorDinamico.setAlignment(Pos.TOP_CENTER);
 		contenedorDinamico.getChildren().add(nodo);
 	}
 
@@ -328,13 +325,9 @@ public class Vista {
 		return btnLimpiarInput;
 	}
 
-	/*
-	 * public Button getBtnSalir() { return btnSalir; }
-	 */
-
-	/*
-	 * public Button getBtnEtiquetas() { return btnEtiquetas; }
-	 */
+	public Button getBtnOrdenesTrabajos() {
+		return btnOrdenesTrabajos;
+	}
 
 	public void setInputTexto(String texto) {
 		txtInput.setText(texto);
@@ -360,7 +353,4 @@ public class Vista {
 			txtInput.setStyle("-fx-background-radius: 20; -fx-border-radius: 20; -fx-padding: 0 15;");
 		}
 	}
-	
-	
-
 }
