@@ -27,18 +27,15 @@ public class Controlador {
 	private final MongoCollection<Document> coleccion;
 	private final MongoCollection<Document> coleccionOrdenes;
 
-	// ── Estado del último resultado mostrado (para filtro en tiempo real) ─────
 	private List<Document> ultimosDatosOriginales = null;
 	private String[] ultimasColumnas = null;
 	private String[] ultimasLlaves = null;
 	private String ultimoTitulo = null;
 
-	public Controlador(Vista vista, MongoCollection<Document> coleccion, MongoCollection<Document> coleccionOrdenes) { // ←
-																														// parámetro
-																														// nuevo
+	public Controlador(Vista vista, MongoCollection<Document> coleccion, MongoCollection<Document> coleccionOrdenes) {
 		this.vista = vista;
 		this.coleccion = coleccion;
-		this.coleccionOrdenes = coleccionOrdenes; // ← asignación nueva
+		this.coleccionOrdenes = coleccionOrdenes;
 		registrarEventos();
 		actualizarMetricasDashboard();
 		iniciarAutoRefresco();
@@ -58,8 +55,6 @@ public class Controlador {
 		vista.getBtnLimpiarInput().setOnAction(e -> onLimpiarInput());
 		vista.getBtnExportar().setOnAction(e -> onExportar());
 		vista.getBtnCompras().setOnAction(e -> onCompras());
-		// vista.getBtnSalir() .setOnAction(e -> onSalir());
-		// vista.getBtnEtiquetas().setOnAction(e -> onImprimirEtiquetas());
 		vista.setOnInputChange((obs, oldVal, newVal) -> onFiltrarEnTiempoReal(newVal));
 		vista.getBtnInformePendientes().setOnAction(e -> onInformePendientes());
 		vista.getBtnFueraDePlazo().setOnAction(e -> onInformeFueraDePlazo());
@@ -107,7 +102,7 @@ public class Controlador {
 		tarea.setOnSucceeded(e -> {
 			vista.setEstado("✅ Excel importado correctamente.");
 			onListarObras();
-			actualizarMetricasDashboard(); // ← aquí, cuando ya terminó
+			actualizarMetricasDashboard();
 		});
 
 		tarea.setOnFailed(
@@ -234,12 +229,6 @@ public class Controlador {
 	}
 
 	// ── Detalle completo de una obra ──────────────────────────────────────────
-	// ═════════════════════════════════════════════════════════════════════════
-	// MÉTODO CORREGIDO: mostrarDetalleObra
-	// FIX: "falta" (A PEDIR) solo depende de salidaUnidad y preparado.
-//	      pedidoCompleto2 y fechaPedido se muestran como columnas informativas
-//	      pero NO alteran el cálculo de lo que queda por preparar.
-	// ═════════════════════════════════════════════════════════════════════════
 	private void mostrarDetalleObra(String ref) {
 		Document doc = coleccion.find(eq("obra", ref)).first();
 		if (doc == null) {
@@ -260,8 +249,6 @@ public class Controlador {
 			int salida = copia.getInteger("salidaUnidad", 0);
 			int preparado = parseEntero(copia.getOrDefault("preparado", "0").toString());
 
-			// ── FIX: falta = salida - preparado (sin restar pedidoCompleto2) ──
-			// pedidoCompleto2 y fechaPedido se muestran como info, no modifican A PEDIR
 			int falta = Math.max(0, salida - preparado);
 			copia.put("falta", falta);
 			copia.put("pedidoCompleto", (falta == 0 && salida > 0) ? "✔" : "✘");
@@ -270,9 +257,9 @@ public class Controlador {
 		}
 
 		String[] cols = { "A3", "MARCA", "REFERENCIA", "DESCRIPCIÓN", "UNIDAD", "PENDIENTE", "CANTIDAD PEDIDO",
-				"PEDIDO COMPLETO", "FECHA PEDIDO" };
+				"PEDIDO COMPLETO", "FECHA PEDIDO", "FECHA SERVICIO" };
 		String[] keys = { "A3", "marca", "referencia", "descripcion", "salidaUnidad", "falta", "pedidoCompleto2",
-				"pedidoCompleto", "fechaPedido" };
+				"pedidoCompleto", "fechaPedido", "fechaServicio" };
 		mostrarTablaResultados(
 				"Detalle Obra: " + ref + " | Cliente: " + doc.getString("cliente") + " | Alta: "
 						+ (doc.getString("fechaAlta") != null ? doc.getString("fechaAlta") : "—"),
@@ -291,7 +278,6 @@ public class Controlador {
 		mostrarTablaResultados("Resultados Cliente: " + cliente, resultados, cols, keys);
 	}
 
-	// ── Buscar por referencia de material ────────────────────────────────────
 	private void buscarPorReferencia(String refBusqueda) {
 		List<Document> filas = new java.util.ArrayList<>();
 		try (MongoCursor<Document> cursor = coleccion.find(eq("materiales.referencia", refBusqueda)).iterator()) {
@@ -300,15 +286,26 @@ public class Controlador {
 				List<Document> mats = obraDoc.getList("materiales", Document.class);
 				for (Document m : mats) {
 					if (refBusqueda.equalsIgnoreCase(m.getString("referencia"))) {
-						m.append("obraRef", obraDoc.getString("obra"));
-						filas.add(m);
+						Document copia = new Document(m);
+
+						// ── Calcular falta ────────────────────────────────────
+						int salida = copia.getInteger("salidaUnidad", 0);
+						int preparado = parseEntero(copia.getOrDefault("preparado", "0").toString());
+						int falta = Math.max(0, salida - preparado);
+						copia.put("falta", falta);
+
+						// ── Traer fecha de entrega desde el documento de obra ─
+						copia.append("entrega", obraDoc.getString("entrega"));
+						copia.append("obraRef", obraDoc.getString("obra"));
+						copia.append("obra", obraDoc.getString("obra"));
+						filas.add(copia);
 					}
 				}
 			}
 		}
-		String[] cols = { "OBRA", "A3", "REFERENCIA", "MARCA", "DESCRIPCIÓN", "PREPARADO", "PENDIENTE" };
-		String[] keys = { "obraRef", "A3", "referencia", "marca", "descripcion", "preparado", "falta" };
-		mostrarTablaResultados("Búsqueda de Material: " + refBusqueda, filas, cols, keys);
+		String[] cols = { "OBRA", "A3", "REFERENCIA", "MARCA", "DESCRIPCIÓN", "PREPARADO", "PENDIENTE", "ENTREGA" };
+		String[] keys = { "obraRef", "A3", "referencia", "marca", "descripcion", "preparado", "falta", "entrega" };
+		mostrarTablaResultadosConEdicion("Búsqueda de Material: " + refBusqueda, filas, cols, keys);
 	}
 
 	// ── Buscar por A3 ─────────────────────────────────────────────────────────
@@ -340,8 +337,6 @@ public class Controlador {
 
 	// ═════════════════════════════════════════════════════════════════════════
 	// 5. AGREGAR FILA
-	// Primero muestra la tabla actual de materiales de la obra, luego abre
-	// el formulario de nueva fila con los campos ya conocidos.
 	// ═════════════════════════════════════════════════════════════════════════
 	private void onAgregarFila() {
 		String ref = pedirObraConIcono("Agregar fila");
@@ -533,11 +528,7 @@ public class Controlador {
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	// 7. ACTUALIZAR / EDITAR OBRA *** MODIFICADO: muestra Referencia y Descripción
-	// bloqueados, solo se pueden editar SERVIR y QUITAR, con validaciones en tiempo
-	// real
-
-	// MÉTODO CORREGIDO: onActualizar
+	// 7. ACTUALIZAR / EDITAR OBRA
 	// ═════════════════════════════════════════════════════════════════════════
 	private void onActualizar() {
 		String ref = pedirObraConIcono("Editar obra");
@@ -562,7 +553,7 @@ public class Controlador {
 		ButtonType btnTypeSalir = new ButtonType("Salir", ButtonBar.ButtonData.RIGHT);
 		ButtonType btnTypeAplicar = new ButtonType("Guardar", ButtonBar.ButtonData.RIGHT);
 		dialog.getDialogPane().getButtonTypes().addAll(btnTypeAplicar, btnTypeSalir, btnTypeCancelar);
-		dialog.getDialogPane().setPrefWidth(1400);
+		dialog.getDialogPane().setPrefWidth(1550);
 		dialog.getDialogPane().setPrefHeight(650);
 
 		VBox cabeceraDialogo = new VBox(2);
@@ -574,7 +565,8 @@ public class Controlador {
 		lblSub.setStyle("-fx-text-fill: #a4b0be; -fx-font-size: 13px;");
 		cabeceraDialogo.getChildren().addAll(lblTitulo, lblSub);
 
-		double[] colWidths = { 55, 130, 250, 80, 80, 80, 90, 80, 80, 80, 100 };
+		// FECHA SERVICIO añadida al final
+		double[] colWidths = { 55, 130, 250, 80, 80, 80, 90, 80, 80, 80, 100, 130 };
 
 		GridPane gridHeader = new GridPane();
 		gridHeader.setHgap(10);
@@ -582,7 +574,7 @@ public class Controlador {
 		gridHeader.setStyle("-fx-background-color: #f1f2f6; -fx-border-color: #dfe4ea; -fx-border-width: 0 0 1 0;");
 
 		String[] headers = { "A3", "REFERENCIA 🔒", "DESCRIPCIÓN 🔒", "UNIDAD 🔒", "PENDIENTE", "SERVIR", "AÑADIR",
-				"PREPARADO 🔒", "QUITAR", "ELIMINAR", "PEND. DE RECIBIR 🔒" };
+				"PREPARADO 🔒", "QUITAR", "ELIMINAR", "PEND. DE RECIBIR 🔒", "FECHA SERVICIO" };
 
 		for (int i = 0; i < headers.length; i++) {
 			Label l = new Label(headers[i]);
@@ -635,7 +627,6 @@ public class Controlador {
 			tfPrep.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; "
 					+ "-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: #27ae60; -fx-alignment: center;");
 
-			// ── pedidoCompleto2: se recarga desde Mongo en calcular() ──────────
 			int pedidoCompletado2Val = m.getInteger("pedidoCompleto2", 0);
 			TextField tfPedidoComp2 = styledField(String.valueOf(pedidoCompletado2Val), 80);
 			tfPedidoComp2.setEditable(false);
@@ -649,11 +640,28 @@ public class Controlador {
 
 			TextField tfQuitar = styledField("", colWidths[7]);
 
-			String fechaExistente = m.getString("fechaPedido") != null ? m.getString("fechaPedido") : "—";
+			// ── FECHA PEDIDO (existente, se mantiene igual) ───────────────────
+			String fechaPedidoDB = m.getString("fechaPedido");
+			String fechaExistente;
+			String estiloFecha;
+
+			if (fechaPedidoDB == null || fechaPedidoDB.equals("—") || fechaPedidoDB.isEmpty()) {
+				fechaExistente = "Sin pedir";
+				estiloFecha = "-fx-text-fill: #a4b0be; -fx-font-size: 11px; -fx-font-weight: bold;";
+			} else {
+				fechaExistente = fechaPedidoDB;
+				estiloFecha = "-fx-text-fill: #27ae60; -fx-font-size: 11px; -fx-font-weight: bold;";
+			}
+
 			Label lblFechaPedido = new Label(fechaExistente);
-			lblFechaPedido.setMinWidth(100);
-			lblFechaPedido.setPrefWidth(100);
-			lblFechaPedido.setStyle("-fx-text-fill: #7f8c8d; -fx-font-size: 11px; -fx-font-weight: bold;");
+			lblFechaPedido.setStyle(estiloFecha);
+
+			// ── NUEVA: FECHA SERVICIO ─────────────────────────────────────────
+			String fechaServicioExistente = m.getString("fechaServicio") != null ? m.getString("fechaServicio") : "—";
+			Label lblFechaServicio = new Label(fechaServicioExistente);
+			lblFechaServicio.setMinWidth(130);
+			lblFechaServicio.setPrefWidth(130);
+			lblFechaServicio.setStyle("-fx-text-fill: #7f8c8d; -fx-font-size: 11px; -fx-font-weight: bold;");
 
 			Button btnValidar = new Button("Añadir");
 			btnValidar.setStyle("-fx-background-color: #2980b9; -fx-text-fill: white; "
@@ -665,19 +673,16 @@ public class Controlador {
 					+ "-fx-font-weight: bold; -fx-font-size: 11px; "
 					+ "-fx-background-radius: 6; -fx-cursor: hand; -fx-padding: 4 10;");
 
-			final int indiceDeLaFila = i; // ← añade esta línea antes del Runnable
+			final int indiceDeLaFila = i;
 			final String refFinalCalc = ref;
 
 			Runnable calcular = () -> {
-				// ── Recargar por ÍNDICE, no por A3 ──────────────────────────────
 				Document matFresco = recargarMaterialPorIndice(refFinalCalc, indiceDeLaFila);
 				int comprado = matFresco != null ? matFresco.getInteger("pedidoCompleto2", 0) : 0;
 				tfPedidoComp2.setText(String.valueOf(comprado));
-
 				int s = parseEntero(tfSalida.getText());
 				int p = parseEntero(tfPrep.getText());
 				int aPedir = Math.max(0, s - p);
-
 				tfAPedir.setText(String.valueOf(aPedir));
 				tfAPedir.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; "
 						+ "-fx-font-weight: bold; -fx-font-size: 13px; -fx-alignment: center; -fx-text-fill: "
@@ -692,12 +697,9 @@ public class Controlador {
 				}
 				int pedido = parseEntero(tfSalida.getText());
 				int servir = parseEntero(newVal);
-				if (servir > pedido) {
-					tfServir.setStyle("-fx-background-radius: 5; -fx-border-color: #e74c3c; "
-							+ "-fx-border-radius: 5; -fx-border-width: 2;");
-				} else {
-					tfServir.setStyle("-fx-background-radius: 5; -fx-border-color: #dfe4ea; -fx-border-radius: 5;");
-				}
+				tfServir.setStyle(servir > pedido
+						? "-fx-background-radius: 5; -fx-border-color: #e74c3c; -fx-border-radius: 5; -fx-border-width: 2;"
+						: "-fx-background-radius: 5; -fx-border-color: #dfe4ea; -fx-border-radius: 5;");
 			});
 
 			tfQuitar.textProperty().addListener((obs, oldVal, newVal) -> {
@@ -707,22 +709,15 @@ public class Controlador {
 				}
 				int prep = parseEntero(tfPrep.getText());
 				int quitar = parseEntero(newVal);
-				if (quitar > prep) {
-					tfQuitar.setStyle("-fx-background-radius: 5; -fx-border-color: #e74c3c; "
-							+ "-fx-border-radius: 5; -fx-border-width: 2;");
-				} else {
-					tfQuitar.setStyle("-fx-background-radius: 5; -fx-border-color: #dfe4ea; -fx-border-radius: 5;");
-				}
+				tfQuitar.setStyle(quitar > prep
+						? "-fx-background-radius: 5; -fx-border-color: #e74c3c; -fx-border-radius: 5; -fx-border-width: 2;"
+						: "-fx-background-radius: 5; -fx-border-color: #dfe4ea; -fx-border-radius: 5;");
 			});
 
 			btnValidar.setOnAction(e -> {
 				int servir = parseEntero(tfServir.getText());
 				int prepActual = parseEntero(tfPrep.getText());
 				int pedido = parseEntero(tfSalida.getText());
-
-				String fechaHoy = new SimpleDateFormat("dd/MM/yyyy HH:mm").format(new Date());
-				lblFechaPedido.setText(fechaHoy);
-				lblFechaPedido.setStyle("-fx-text-fill: #27ae60; -fx-font-size: 11px; -fx-font-weight: bold;");
 
 				if (servir > pedido) {
 					Alert alerta = new Alert(Alert.AlertType.ERROR);
@@ -733,7 +728,6 @@ public class Controlador {
 					alerta.showAndWait();
 					return;
 				}
-
 				int nuevoPrep = prepActual + servir;
 				if (nuevoPrep > pedido) {
 					Alert alerta = new Alert(Alert.AlertType.ERROR);
@@ -748,6 +742,12 @@ public class Controlador {
 				tfPrep.setText(String.valueOf(nuevoPrep));
 				tfServir.setText("");
 				tfServir.setStyle("-fx-background-radius: 5; -fx-border-color: #dfe4ea; -fx-border-radius: 5;");
+
+				// ── ACTUALIZAR FECHA SERVICIO al pulsar Añadir ────────────────
+				String fechaHoy = new SimpleDateFormat("dd/MM/yyyy HH:mm").format(new Date());
+				lblFechaServicio.setText(fechaHoy);
+				lblFechaServicio.setStyle("-fx-text-fill: #27ae60; -fx-font-size: 11px; -fx-font-weight: bold;");
+
 				calcular.run();
 			});
 
@@ -758,7 +758,6 @@ public class Controlador {
 
 				if (quitar <= 0)
 					return;
-
 				if (quitar > prepActual) {
 					Alert alerta = new Alert(Alert.AlertType.ERROR);
 					alerta.setTitle("Error al quitar");
@@ -768,7 +767,6 @@ public class Controlador {
 					alerta.showAndWait();
 					return;
 				}
-
 				if (quitar > pedido) {
 					Alert alerta = new Alert(Alert.AlertType.ERROR);
 					alerta.setTitle("Error al quitar");
@@ -779,10 +777,21 @@ public class Controlador {
 					return;
 				}
 
-				tfPrep.setText(String.valueOf(prepActual - quitar));
+				int nuevoPrep = prepActual - quitar;
+				tfPrep.setText(String.valueOf(nuevoPrep));
 				tfQuitar.setText("");
 				tfQuitar.setStyle("-fx-background-radius: 5; -fx-border-color: #dfe4ea; -fx-border-radius: 5;");
 				calcular.run();
+
+				// ── Si al quitar vuelve a haber margen, desbloquear AÑADIR ───────────
+				if (nuevoPrep < pedido) {
+					tfServir.setEditable(true);
+					tfServir.setStyle("-fx-background-radius: 5; -fx-border-color: #dfe4ea; -fx-border-radius: 5;");
+					btnValidar.setDisable(false);
+					btnValidar.setStyle("-fx-background-color: #2980b9; -fx-text-fill: white; "
+							+ "-fx-font-weight: bold; -fx-font-size: 11px; "
+							+ "-fx-background-radius: 6; -fx-cursor: hand; -fx-padding: 4 10;");
+				}
 			});
 
 			HBox hboxValidar = new HBox(btnValidar);
@@ -806,11 +815,10 @@ public class Controlador {
 			gridDatos.add(tfQuitar, 8, i);
 			gridDatos.add(hboxQuitar, 9, i);
 			gridDatos.add(tfPedidoComp2, 10, i);
-			// ctrl[0]=doc ctrl[1]=tfPrep ctrl[2]=tfAPedir ctrl[3]=tfPedidoComp2
-			// ctrl[4]=tfServir ctrl[5]=btnValidar ctrl[6]=tfQuitar ctrl[7]=btnQuitar
-			// ctrl[8]=a3DeLaFila (int guardado como Integer) ctrl[9]=lblFechaPedido
+			gridDatos.add(lblFechaServicio, 11, i);
+
 			filaControles.add(new Object[] { m, tfPrep, tfAPedir, tfPedidoComp2, tfServir, btnValidar, tfQuitar,
-					btnQuitar, i, lblFechaPedido });
+					btnQuitar, i, lblFechaPedido, lblFechaServicio });
 		}
 
 		// ── Bloquear filas ya completas al abrir ─────────────────────────────
@@ -823,9 +831,8 @@ public class Controlador {
 			Button btnQuitarC = (Button) ctrl[7];
 			int salidaC = mCtrl.getInteger("salidaUnidad", 0);
 			int prepC = parseEntero(tfPrepC.getText());
-			if (salidaC > 0 && prepC >= salidaC) {
+			if (salidaC > 0 && prepC >= salidaC)
 				bloquearFila(tfServirC, tfPrepC, btnValidarC, tfQuitarC, btnQuitarC);
-			}
 		}
 
 		List<TextField> camposServir = new java.util.ArrayList<>();
@@ -879,37 +886,40 @@ public class Controlador {
 		scroll.setStyle("-fx-background-color: transparent;");
 		dialog.getDialogPane().setContent(new VBox(cabeceraDialogo, gridHeader, scroll));
 
-		// ════════════════════════════════════════════════════════════════════
-		// HELPER local: construye la lista leyendo pedidoCompleto2 FRESCO
-		// ════════════════════════════════════════════════════════════════════
 		final String refFinal = ref;
 
+		// ── construirListaFresca
 		java.util.function.Supplier<List<Document>> construirListaFresca = () -> {
 			List<Document> nuevaLista = new java.util.ArrayList<>();
 			for (Object[] ctrl : filaControles) {
 				Document mOrig = (Document) ctrl[0];
 				int nuevoPrep = parseEntero(((TextField) ctrl[1]).getText());
 				int indice = (int) ctrl[8];
+				Label lblFecha = (Label) ctrl[9];
+				Label lblFechaSrv = (Label) ctrl[10];
 
-				// Recargar desde Mongo para obtener pedidoCompleto2 y fechaPedido frescos
 				Document matFresco = recargarMaterialPorIndice(refFinal, indice);
 				int pedidoComp2Fresco = matFresco != null ? matFresco.getInteger("pedidoCompleto2", 0) : 0;
-				// ── fechaPedido NUNCA se toca aquí, siempre se recupera de Mongo ──
-				String fechaPedidoFresca = matFresco != null ? matFresco.getString("fechaPedido") : null;
+
+				String fechaPedidoFinal = matFresco != null ? matFresco.getString("fechaPedido") : null;
+
+				String fechaServicioLabel = lblFechaSrv.getText();
+				String fechaServicioFinal = (fechaServicioLabel != null && !fechaServicioLabel.equals("—"))
+						? fechaServicioLabel
+						: (matFresco != null ? matFresco.getString("fechaServicio") : null);
 
 				Document actualizado = new Document(mOrig).append("preparado", nuevoPrep)
-						.append("pedidoCompleto2", pedidoComp2Fresco).append("fechaPedido", fechaPedidoFresca);
+						.append("pedidoCompleto2", pedidoComp2Fresco).append("fechaPedido", fechaPedidoFinal)
+						.append("fechaServicio", fechaServicioFinal);
 				nuevaLista.add(actualizado);
 			}
 			return nuevaLista;
 		};
 
-		// ── Botón Aplicar (guarda sin cerrar) ────────────────────────────────
+		// ── Botón Guardar (sin cerrar) ────────────────────────────────────────
 		Button botonAplicar = (Button) dialog.getDialogPane().lookupButton(btnTypeAplicar);
 		botonAplicar.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
 			event.consume();
-
-			// Disparar validaciones pendientes
 			for (Object[] ctrl : filaControles) {
 				TextField tfServirCtrl = (TextField) ctrl[4];
 				Button btnValidarCtrl = (Button) ctrl[5];
@@ -920,13 +930,10 @@ public class Controlador {
 				if (parseEntero(tfQuitarCtrl.getText()) > 0 && !btnQuitarCtrl.isDisabled())
 					btnQuitarCtrl.fire();
 			}
-
-			// Guardar con pedidoCompleto2 FRESCO
 			List<Document> nuevaLista = construirListaFresca.get();
 			coleccion.updateOne(eq("obra", refFinal), new Document("$set", new Document("materiales", nuevaLista)));
 			vista.setEstado("💾 Cambios guardados (sin cerrar).");
 
-			// ── Recalcular PENDIENTE visualmente en cada fila sin cerrar ─────────────
 			for (Object[] ctrl : filaControles) {
 				TextField tfPrepCtrl = (TextField) ctrl[1];
 				TextField tfAPedirCtrl = (TextField) ctrl[2];
@@ -935,32 +942,28 @@ public class Controlador {
 				TextField tfQuitarCtrl = (TextField) ctrl[6];
 				Button btnQuitarCtrl = (Button) ctrl[7];
 				Document mOrig = (Document) ctrl[0];
-
 				int salida = mOrig.getInteger("salidaUnidad", 0);
 				int preparado = parseEntero(tfPrepCtrl.getText());
 				int pendiente = Math.max(0, salida - preparado);
-
 				tfAPedirCtrl.setText(String.valueOf(pendiente));
 				tfAPedirCtrl.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; "
 						+ "-fx-font-weight: bold; -fx-font-size: 13px; -fx-alignment: center; -fx-text-fill: "
 						+ (pendiente > 0 ? "#e74c3c" : "#27ae60") + ";");
-
-				// Bloquear fila si pendiente llegó a 0
 				if (salida > 0 && preparado >= salida) {
+
 					tfServirCtrl.setEditable(false);
-					tfServirCtrl.setStyle("-fx-background-color: #f1f2f6; -fx-text-fill: #7f8c8d;");
+					tfServirCtrl.setStyle(
+							"-fx-background-color: #f1f2f6; -fx-text-fill: #7f8c8d; -fx-border-color: transparent;");
 					btnValidarCtrl.setDisable(true);
 					btnValidarCtrl.setStyle("-fx-background-color: #bdc3c7; -fx-text-fill: white; "
 							+ "-fx-font-weight: bold; -fx-font-size: 11px; "
 							+ "-fx-background-radius: 6; -fx-padding: 4 10;");
+
 				}
 			}
-
 			onBuscarObra(refFinal);
-
 		});
 
-		// ── Interceptar OK para avisar de campos pendientes ──────────────────
 		Button botonSalir = (Button) dialog.getDialogPane().lookupButton(btnTypeSalir);
 		botonSalir.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
 			boolean hayPendientes = filaControles.stream().anyMatch(ctrl -> {
@@ -976,11 +979,7 @@ public class Controlador {
 			}
 		});
 
-		dialog.setResultConverter(btn -> {
-			if (btn != btnTypeSalir)
-				return null;
-			return construirListaFresca.get();
-		});
+		dialog.setResultConverter(btn -> btn == btnTypeSalir ? construirListaFresca.get() : null);
 
 		Button botonCancelar = (Button) dialog.getDialogPane().lookupButton(btnTypeCancelar);
 		botonCancelar.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
@@ -1092,7 +1091,6 @@ public class Controlador {
 			int prepVal = parseEntero(m.getOrDefault("preparado", "0").toString());
 			int pedidoCompletoVal = m.getInteger("pedidoCompleto2", 0);
 
-			// A PEDIR: salida - preparado - ya pedido (solo lectura, no se modifica aquí)
 			int aPedirInicial = Math.max(0, salidaVal - prepVal);
 
 			// ── A3 ────────────────────────────────────────────────────────────
@@ -1192,8 +1190,14 @@ public class Controlador {
 						+ "-fx-alignment: center; -fx-text-fill: #2980b9;");
 
 				String fechaHoy = new SimpleDateFormat("dd/MM/yyyy HH:mm").format(new Date());
-				lblFechaPedido.setText(fechaHoy);
-				lblFechaPedido.setStyle("-fx-text-fill: #27ae60; -fx-font-size: 11px; -fx-font-weight: bold;");
+				int pedidoTras = parseEntero(tfPedidoCompleto.getText());
+				if (pedidoTras == 0) {
+					lblFechaPedido.setText("Sin pedir");
+					lblFechaPedido.setStyle("-fx-text-fill: #a4b0be; -fx-font-size: 11px; -fx-font-weight: bold;");
+				} else {
+					lblFechaPedido.setText(fechaHoy);
+					lblFechaPedido.setStyle("-fx-text-fill: #27ae60; -fx-font-size: 11px; -fx-font-weight: bold;");
+				}
 
 				// ── Bloquear si ya está todo pedido ──────────────────────────────────
 				int salidaV = m.getInteger("salidaUnidad", 0);
@@ -1227,13 +1231,18 @@ public class Controlador {
 					return;
 				}
 
-				// ✅ Solo resta de pedido completo, no toca A Pedir
+				// Solo resta de pedido completo, no toca A Pedir
 				int nuevoPedidoCompleto = pedidoActual - quitar;
+				tfPedidoCompleto.setText(String.valueOf(nuevoPedidoCompleto));
 				tfPedidoCompleto.setText(String.valueOf(nuevoPedidoCompleto));
 				tfQuitar.setText("");
 				tfQuitar.setStyle("-fx-background-radius: 5; -fx-border-color: #dfe4ea; -fx-border-radius: 5;");
-				tfPedidoCompleto.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; "
-						+ "-fx-font-weight: bold; -fx-font-size: 13px; -fx-alignment: center; -fx-text-fill: #2980b9;");
+
+				// ── Si vuelve a 0, mostrar "Sin pedir" ────────────────────────
+				if (nuevoPedidoCompleto == 0) {
+					lblFechaPedido.setText("Sin pedir");
+					lblFechaPedido.setStyle("-fx-text-fill: #a4b0be; -fx-font-size: 11px; -fx-font-weight: bold;");
+				}
 
 				// ── Desbloquear si vuelve a haber cantidad por pedir ─────────────────
 				int salidaV = m.getInteger("salidaUnidad", 0);
@@ -1255,7 +1264,6 @@ public class Controlador {
 			hboxQuitar.setPrefWidth(colWidths[7]);
 			hboxQuitar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
-			// ── Añadir al grid ────────────────────────────────────────────────
 			gridDatos.add(lblA3, 0, i);
 			gridDatos.add(lblDesc, 1, i);
 			gridDatos.add(tfAPedir, 2, i);
@@ -1372,6 +1380,7 @@ public class Controlador {
 			coleccion.updateOne(eq("obra", ref), new Document("$set", new Document("materiales", nuevaLista)));
 			vista.setEstado("💾 Compras guardadas.");
 		});
+
 		// ── Botón OK (guarda y cierra) ────────────────────────────────────────
 
 		// ── Interceptar OK para avisar de campos pendientes ──────────────────
@@ -1403,7 +1412,7 @@ public class Controlador {
 				}
 				return nuevaLista;
 			}
-			return null; // Cancelar y cualquier otro botón → no hace nada
+			return null;
 		});
 
 		Button botonCancelar = (Button) dialog.getDialogPane().lookupButton(btnTypeCancelar);
@@ -1802,10 +1811,10 @@ public class Controlador {
 			switch (llave) {
 			case "A3" -> col.setPrefWidth(60);
 			case "salidaUnidad", "preparado", "falta" -> col.setPrefWidth(75);
-			case "pedidoCompleto2" -> col.setPrefWidth(100); // ← AÑADIR
+			case "pedidoCompleto2" -> col.setPrefWidth(100);
 			case "descripcion" -> col.setPrefWidth(400);
-			case "observaciones" -> col.setPrefWidth(250);
 			case "obra", "obraRef" -> col.setPrefWidth(130);
+			case "fechaServicio" -> col.setPrefWidth(130);
 			default -> col.setPrefWidth(150);
 			}
 
@@ -1866,12 +1875,12 @@ public class Controlador {
 					String ref = doc.getString("obra") != null ? doc.getString("obra") : doc.getString("obraRef");
 
 					if (doc.containsKey("referencia") || doc.containsKey("A3")) {
-						// Es un material → popup de material
+						// Es un material
 						Document obraDoc = coleccion.find(eq("obra", ref)).first();
 						String cliente = obraDoc != null ? obraDoc.getString("cliente") : null;
 						VentanaMaterial.mostrar(doc, ref != null ? ref : "—", cliente);
 					} else {
-						// Es una obra → popup de resumen de obra
+						// Es una obra
 						Document obraDoc = coleccion.find(eq("obra", ref)).first();
 						if (obraDoc != null)
 							VentanaResumenObra.mostrar(obraDoc);
@@ -2094,7 +2103,7 @@ public class Controlador {
 					if (ref != null && !ref.isEmpty()) {
 						vista.setInputTexto(ref);
 						onActualizar();
-						onListarObras(); // ← añade esta línea
+						onListarObras();
 					}
 				});
 			}
@@ -2124,7 +2133,7 @@ public class Controlador {
 					if (ref != null && !ref.isEmpty()) {
 						vista.setInputTexto(ref);
 						onCompras();
-						onListarObras(); // ← añade esta línea
+						onListarObras();
 					}
 				});
 			}
@@ -2144,24 +2153,19 @@ public class Controlador {
 
 	private void bloquearFila(TextField tfServir, TextField tfPrep, Button btnValidar, TextField tfQuitar,
 			Button btnQuitar) {
-		String estiloLocked = "-fx-background-color: #f1f2f6; -fx-text-fill: #7f8c8d;";
-
+		// ── Solo bloquear SERVIR/AÑADIR; QUITAR sigue activo ─────────────────
 		tfServir.setEditable(false);
-		tfServir.setStyle(tfServir.getStyle() + estiloLocked);
+		tfServir.setStyle("-fx-background-color: #f1f2f6; -fx-text-fill: #7f8c8d; -fx-border-color: transparent;");
 
 		tfPrep.setEditable(false);
-		tfPrep.setStyle(tfPrep.getStyle() + estiloLocked);
-
-		tfQuitar.setEditable(false);
-		tfQuitar.setStyle(tfQuitar.getStyle() + estiloLocked);
+		tfPrep.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; "
+				+ "-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: #27ae60; -fx-alignment: center;");
 
 		btnValidar.setDisable(true);
 		btnValidar.setStyle("-fx-background-color: #bdc3c7; -fx-text-fill: white; "
 				+ "-fx-font-weight: bold; -fx-font-size: 11px; -fx-background-radius: 6; -fx-padding: 4 10;");
 
-		btnQuitar.setDisable(true);
-		btnQuitar.setStyle("-fx-background-color: #bdc3c7; -fx-text-fill: white; "
-				+ "-fx-font-weight: bold; -fx-font-size: 11px; -fx-background-radius: 6; -fx-padding: 4 10;");
+		// ── tfQuitar y btnQuitar se dejan intactos (editables) ────────────────
 	}
 
 	private void bloquearFilaCompras(TextField tfPedir, Button btnValidar, TextField tfQuitar, Button btnQuitar) {
@@ -2192,7 +2196,7 @@ public class Controlador {
 		tfServir.setEditable(true);
 		tfServir.setStyle("-fx-background-radius: 5; -fx-border-color: #dfe4ea; -fx-border-radius: 5;");
 
-		tfPrep.setEditable(false); // preparado siempre solo lectura
+		tfPrep.setEditable(false);
 		tfPrep.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; "
 				+ "-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: #27ae60; " + "-fx-alignment: center;");
 
@@ -2283,7 +2287,7 @@ public class Controlador {
 	}
 
 	private void onOrdenesTrabajos() {
-		// Si hay texto en el input úsalo como filtro de obra; si no, muestra todo
+
 		String filtro = vista.getInput();
 
 		vista.setEstado("⏳ Cargando órdenes de trabajo...");
@@ -2313,7 +2317,7 @@ public class Controlador {
 			.newSingleThreadScheduledExecutor();
 
 	// ═════════════════════════════════════════════════════════════════════════
-	// AUTO-REFRESCO (cada 30 segundos)
+	// AUTO-REFRESCO 
 	// ═════════════════════════════════════════════════════════════════════════
 	private void iniciarAutoRefresco() {
 		scheduler.scheduleAtFixedRate(() -> {
@@ -2322,7 +2326,7 @@ public class Controlador {
 
 				// Si hay una tabla visible, recargarla
 				if (ultimoTitulo != null && ultimosDatosOriginales != null) {
-					// Recargar datos frescos desde MongoDB según el título activo
+					// Recargar datos frescos desde la bd  según el título activo
 					if (ultimoTitulo.startsWith("Listado General")) {
 						List<Document> obras = new java.util.ArrayList<>();
 						try (MongoCursor<Document> cursor = coleccion.find().iterator()) {
@@ -2348,8 +2352,7 @@ public class Controlador {
 		}, 30, 60, java.util.concurrent.TimeUnit.SECONDS);
 	}
 
-	// Helper: recarga materiales de una obra con los cálculos de
-	// falta/pedidoCompleto
+	// Helper: recarga materiales de una obra con los cálculos de "falta" y "pedidoCompleto" para la vista de detalle
 	private List<Document> obtenerMaterialesParaVista(String ref) {
 		Document doc = coleccion.find(com.mongodb.client.model.Filters.eq("obra", ref)).first();
 		if (doc == null)

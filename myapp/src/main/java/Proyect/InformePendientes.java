@@ -61,7 +61,7 @@ public class InformePendientes {
 	}
 
 	// ────────────────────────────────────────────────────────────────────────
-	// Consulta MongoDB → lista de filas
+	// Consulta MongoDB == lista de filas
 	// ────────────────────────────────────────────────────────────────────────
 	public static List<FilaInforme> obtenerPendientes(MongoCollection<Document> coleccion) {
 		List<FilaInforme> filas = new ArrayList<>();
@@ -269,7 +269,7 @@ public class InformePendientes {
 			XSSFCellStyle sTotal = mkTotalStyle(wb);
 			XSSFCellStyle sTotNum = mkTotalNum(wb);
 
-			final int LAST_COL = 7; // índice de la última columna (PENDIENTE)
+			final int LAST_COL = 7;
 
 			int r = 0;
 			ws.createRow(r++).setHeightInPoints(6);

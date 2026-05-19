@@ -41,8 +41,6 @@ import org.apache.poi.xssf.usermodel.*;
 
 public class Modelo {
 
-	// ── FIX 1: TOTAL_COLS pasa de 12 a 13 para incluir N° PEDIDO ─────────────
-	// ── TOTAL_COLS = 9 (igual que mostrarDetalleObra) ─────────────────────────
 	private static final int TOTAL_COLS = 9;
 
 	private static final int[] COL_WIDTHS = { 8, // A A3
@@ -174,7 +172,7 @@ public class Modelo {
 					int prep = prepInt(m.getOrDefault("preparado", "0"));
 					int aPedir = Math.max(0, salida - prep);
 					int cantPed = m.getInteger("pedidoCompleto2", 0);
-					String falta0 = aPedir == 0 ? "✔" : "✘"; // pedidoCompleto visual
+					String falta0 = aPedir == 0 ? "✔" : "✘";
 					String fecha = m.getString("fechaPedido") != null ? m.getString("fechaPedido") : "—";
 
 					XSSFRow row = ws.createRow(r++);
@@ -185,7 +183,7 @@ public class Modelo {
 					cell(row, 2, s(m, "referencia"), alt ? sDataA : sDataN);
 					cell(row, 3, s(m, "descripcion"), alt ? sDataA : sDataN);
 					cellN(row, 4, salida, alt ? sDataA : sDataN);
-					cellN(row, 5, aPedir, alt ? sDataLkA : sDataLkN); // naranja = calculado
+					cellN(row, 5, aPedir, alt ? sDataLkA : sDataLkN);
 					cell(row, 6, falta0, alt ? sCkA : sCkN); // ✔/✘
 					cellN(row, 7, cantPed, alt ? sDataA : sDataN);
 					cell(row, 8, fecha, alt ? sDataA : sDataN);
@@ -386,8 +384,6 @@ public class Modelo {
 		return new byte[] { (byte) Integer.parseInt(hex.substring(0, 2), 16),
 				(byte) Integer.parseInt(hex.substring(2, 4), 16), (byte) Integer.parseInt(hex.substring(4, 6), 16) };
 	}
-	// ── FIX 2: método rgb(String) eliminado — era código muerto (solo retornaba
-	// null) ──
 
 	// ─────────────────────────────────────────────────────────────────────────
 	public static String obtenerValorCelda(Cell celda) {
@@ -462,8 +458,8 @@ public class Modelo {
 					if ((val.contains("REF") || val.contains("OBRA")) && !documentoPrincipal.containsKey("obra")) {
 						String v = buscarValorSiguiente(row, i);
 						if (!v.isEmpty()) {
-							documentoPrincipal.put("obra", v); // se mantiene para compatibilidad interna
-							documentoPrincipal.put("orden", v); // nuevo campo para conectar con coleccionOrdenes
+							documentoPrincipal.put("obra", v);
+							documentoPrincipal.put("orden", v);
 						}
 					}
 					if (val.contains("CLIENTE") && !documentoPrincipal.containsKey("cliente")) {
@@ -539,8 +535,6 @@ public class Modelo {
 				String pedidoVal = pedidoRaw.isEmpty() ? "✘"
 						: (pedidoRaw.equals("✔") || pedidoRaw.equalsIgnoreCase("SI") || pedidoRaw.equalsIgnoreCase("S")
 								|| pedidoRaw.equals("1") ? "✔" : "✘");
-
-				// DESPUÉS:
 
 				Document material = new Document().append("A3", idA3).append("marca", getCelda(row, colMap, "marca"))
 						.append("referencia", getCelda(row, colMap, "referencia"))
@@ -641,8 +635,7 @@ public class Modelo {
 				System.out.format(fmt, m.optInt("A3"), m.optString("marca", ""), m.optString("referencia", ""),
 						cortarTexto(m.optString("descripcion", ""), 30), m.optInt("salidaUnidad"),
 						m.optInt("servirUnidad"), m.optString("validacion", ""), m.optString("preparado", ""),
-						m.optInt("falta"), m.optString("pedidoCompleto", ""), m.optString("numeroPedido", ""), // ← FIX
-																												// 1
+						m.optInt("falta"), m.optString("pedidoCompleto", ""), m.optString("numeroPedido", ""),
 						m.optString("fechaPedido", ""), m.optString("observaciones", ""));
 			}
 			System.out.println("-".repeat(130));
@@ -686,7 +679,6 @@ public class Modelo {
 		int opcion = teclado.nextInt();
 		teclado.nextLine();
 
-		// ── FIX 1: numeroPedido añadido al menú de consola (opción 10) ────────
 		String[] campos = { "", "marca", "referencia", "descripcion", "salidaUnidad", "servirUnidad", "validacion",
 				"preparado", "falta", "pedidoCompleto", "numeroPedido", "fechaPedido", "observaciones" };
 
@@ -800,7 +792,6 @@ public class Modelo {
 		nuevaFila.append("falta", parseEntero(teclado.nextLine()));
 		System.out.print("Pedido completo: ");
 		nuevaFila.append("pedidoCompleto", teclado.nextLine());
-		// ── FIX 1: campo numeroPedido añadido a agregarFila en consola ────────
 		System.out.print("N° Pedido: ");
 		nuevaFila.append("numeroPedido", teclado.nextLine());
 		System.out.print("Fecha pedido: ");
@@ -987,8 +978,6 @@ public class Modelo {
 		exportar(obra, archivo);
 	}
 
-	// --- En Modelo.java ---
-
 	public static int contarTodosLosMateriales(com.mongodb.client.MongoCollection<org.bson.Document> coleccion) {
 		int total = 0;
 		for (org.bson.Document doc : coleccion.find()) {
@@ -1067,7 +1056,7 @@ public class Modelo {
 		if (fechaStr == null || fechaStr.isBlank())
 			return fechaStr;
 
-		// Fix: si viene como dd/MM/0026 corregir a dd/MM/2026
+		// Pasar a fecha española
 		fechaStr = fechaStr.trim();
 		if (fechaStr.matches("\\d{1,2}/\\d{1,2}/00\\d{2}")) {
 			fechaStr = fechaStr.replaceAll("/00(\\d{2})$", "/20$1");

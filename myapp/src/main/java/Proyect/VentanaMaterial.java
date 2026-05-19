@@ -115,7 +115,7 @@ public class VentanaMaterial {
         stage.show();
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static Label badge(String texto, String bg, String color) {
         Label l = new Label(texto);

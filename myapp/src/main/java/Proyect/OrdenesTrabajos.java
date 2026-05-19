@@ -15,18 +15,15 @@ import static com.mongodb.client.model.Filters.*;
 
 public class OrdenesTrabajos {
 
-	// Nombres de campo reales en MongoDB
 	private static final String[] COLUMNAS = { "CLIENTE", "ORDEN", "DESCRIPCIÓN", "TIPO", "HORAS" };
 	private static final String[] LLAVES = { "Cliente", "orden", "descripcion", "tipo", "horas" };
 
-	// Valor que identifica la fila-cabecera importada del Excel (se omite)
 	private static final String CABECERA_OBRA = "ORDEN";
 
 	@SuppressWarnings("deprecation")
 	public static VBox construirVista(MongoCollection<Document> colOrdenes, MongoCollection<Document> colRefObras,
 			String filtroObra) {
 
-		// ── 1. Leer documentos, saltando la fila-cabecera ────────────────────
 		List<Document> filas = new ArrayList<>();
 		int numeroFila = 1;
 
@@ -34,17 +31,13 @@ public class OrdenesTrabajos {
 			while (cursor.hasNext()) {
 				Document doc = cursor.next();
 
-				// Saltar el documento que es la cabecera del Excel
-				// Saltar el documento que es la cabecera del Excel
 				String obraVal = doc.getString("obra");
 				String clienteVal = doc.getString("Cliente");
 				String ordenVal2 = doc.getString("orden");
-				String refObra = doc.getString("orden");
 				if (CABECERA_OBRA.equalsIgnoreCase(obraVal) || "ORDEN".equalsIgnoreCase(ordenVal2)
 						|| "CLIENTE".equalsIgnoreCase(clienteVal))
 					continue;
 
-				// Filtro por texto libre si el usuario escribió algo en el input
 				if (filtroObra != null && !filtroObra.isBlank()) {
 					String cliente = doc.getString("Cliente");
 					String desc = doc.getString("descripcion");
@@ -63,12 +56,10 @@ public class OrdenesTrabajos {
 			}
 		}
 
-		// ── 2. Contenedor principal ──────────────────────────────────────────
 		VBox contenedor = new VBox(0);
 		contenedor.setStyle("-fx-background-color: blue; -fx-background-radius: 15; "
 				+ "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.15), 15, 0, 0, 8);");
 
-		// ── 3. Cabecera ──────────────────────────────────────────────────────
 		HBox cabecera = new HBox();
 		cabecera.setPadding(new Insets(15, 25, 15, 25));
 		cabecera.setAlignment(Pos.CENTER_LEFT);
@@ -87,7 +78,6 @@ public class OrdenesTrabajos {
 
 		cabecera.getChildren().addAll(lblTitulo, spacerCab, lblTotal);
 
-		// ── 4. Tabla ─────────────────────────────────────────────────────────
 		TableView<Document> tabla = new TableView<>();
 		tabla.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
 		tabla.setMinHeight(500);
@@ -127,18 +117,20 @@ public class OrdenesTrabajos {
 						setStyle("");
 						return;
 					}
-					setText(item.toString());
 					switch (llave) {
 					case "obra" -> setStyle("-fx-font-weight: 900; -fx-text-fill: #2980b9;");
 					case "tipo" ->
 						setStyle("-fx-font-weight: bold; -fx-text-fill: " + colorPorTipo(item.toString()) + ";");
 					case "horas" -> {
 						int h = parseEntero(item.toString());
-						setText(String.valueOf(h)); // ← añade esta línea
+						setText(String.valueOf(h));
 						setStyle("-fx-alignment: center-right; -fx-font-weight: bold; -fx-text-fill: "
 								+ (h == 0 ? "#a4b0be" : "#2c3e50") + ";");
 					}
-					default -> setStyle("-fx-text-fill: black; -fx-font-weight: bold;");
+					default -> {
+						setText(item.toString());
+						setStyle("-fx-text-fill: black; -fx-font-weight: bold;");
+					}
 					}
 				}
 			});
@@ -146,7 +138,6 @@ public class OrdenesTrabajos {
 			tabla.getColumns().add(col);
 		}
 
-		// ── Columna FINALIZADA ───────────────────────────────────────────────
 		TableColumn<Document, Void> colFinalizada = new TableColumn<>();
 		Label lblFinalizada = new Label("FINALIZADA");
 		lblFinalizada.setStyle("-fx-font-weight: bold; -fx-text-fill: #57606f; -fx-font-size: 11px;");
@@ -161,16 +152,13 @@ public class OrdenesTrabajos {
 					boolean estaFinalizada = Boolean.TRUE.equals(doc.getBoolean("finalizada"));
 					boolean nuevaFinalizada = !estaFinalizada;
 
-					// Si se finaliza → guardar fecha actual, si se desfinaliza → borrar fecha
 					String fechaHoy = nuevaFinalizada
 							? new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format(new java.util.Date())
 							: null;
 
-					// Actualizar en MongoDB
 					colOrdenes.updateOne(eq("_id", doc.getObjectId("_id")), new Document("$set",
 							new Document("finalizada", nuevaFinalizada).append("fechaFinalizada", fechaHoy)));
 
-					// Actualizar en memoria
 					doc.put("finalizada", nuevaFinalizada);
 					doc.put("fechaFinalizada", fechaHoy);
 					getTableView().refresh();
@@ -204,9 +192,8 @@ public class OrdenesTrabajos {
 
 		tabla.getColumns().add(colFinalizada);
 
-		// ── Columna FECHA FINALIZACIÓN ───────────────────────────────────────
 		TableColumn<Document, Object> colFechaFin = new TableColumn<>();
-		Label lblFechaFin = new Label("FECHA FINALIZADA");
+		Label lblFechaFin = new Label("FECHA FIN");
 		lblFechaFin.setStyle("-fx-font-weight: bold; -fx-text-fill: #57606f; -fx-font-size: 11px;");
 		colFechaFin.setGraphic(lblFechaFin);
 		colFechaFin.setPrefWidth(130);
@@ -247,8 +234,6 @@ public class OrdenesTrabajos {
 		contenedor.getChildren().addAll(cabecera, tabla);
 		return contenedor;
 	}
-
-	// ── Helpers ──────────────────────────────────────────────────────────────
 
 	private static String colorPorTipo(String tipo) {
 		if (tipo == null)

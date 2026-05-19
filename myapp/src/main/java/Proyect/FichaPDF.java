@@ -81,7 +81,7 @@ public class FichaPDF {
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	// API PÚBLICA — informe pendientes (PDFBox puro, sin iText)
+	// API PÚBLICA — informe pendientes 
 	// ═════════════════════════════════════════════════════════════════════════
 
 	public static void generarInformePendientes(List<InformePendientes.FilaInforme> filas, File destino)
@@ -226,7 +226,7 @@ public class FichaPDF {
 	// ── Cabecera tabla informe ────────────────────────────────────────────────
 	private void dibujarCabeceraInforme(float[] iColX, float[] iColW, float h) throws IOException {
 		for (int i = 0; i < INC; i++) {
-			// Columnas PENDIENTE(8) y POR PEDIR(10) en naranja para destacarlas
+			
 			boolean dest = (i == 8 || i == 10);
 			rectFill(iColX[i], y - h, iColW[i], h, dest ? NARANJA : AZUL_MED);
 			borde(iColX[i], y - h, iColW[i], h, hex("1F4E79"), 1f);
@@ -288,14 +288,13 @@ public class FichaPDF {
 		int tYaPed = filas.stream().mapToInt(f -> f.pedidoCompleto2).sum();
 		int tPorPedir = filas.stream().mapToInt(f -> f.porPedir).sum();
 
-		// Span cols 0-5 con "TOTAL"
+	
 		float spanW = iColX[6] - ML;
 		rectFill(ML, y - h, spanW, h, AZUL_OSC);
 		borde(ML, y - h, spanW, h, hex("1F4E79"), 1f);
 		setFill(BLANCO);
 		textoCentrado("TOTAL", BOLD, 9f, ML, y - h, spanW, h);
 
-		// Cols 6-10 con valores
 		int[] totVals = { tPedido, tPrep, tPend, tYaPed, tPorPedir };
 		for (int c = 6; c < INC; c++) {
 			float[] bg = (c == 8 || c == 10) ? ROJO : AZUL_OSC;
@@ -611,7 +610,7 @@ public class FichaPDF {
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	// AÑADIR A FichaPDF.java — justo debajo de generarInformePendientes(...)
+	// AÑADIR A FichaPDF.java —
 	// ═════════════════════════════════════════════════════════════════════════
 
 	// ── Definición de columnas para el informe fuera de plazo ────────────────

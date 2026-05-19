@@ -24,7 +24,6 @@ public class Vista {
 	private final Button btnLimpiarInput = new Button("🧹 Limpiar Pantalla");
 	private final Button btnCompras = new Button("🛒 Compras");
 	private final Button btnOrdenesTrabajos = new Button("📑 Órdenes de Trabajo");
-	// private final Button btnSalir = new Button("🚪 Salir del Programa");
 
 	private final TextField txtInput = new TextField();
 	private final Label lblEstado = new Label("Sistemas listos - Base de Datos conectada");
@@ -37,7 +36,6 @@ public class Vista {
 	// Contenedor principal para tablas y bienvenida
 	private final VBox contenedorDinamico = new VBox(15);
 	private final Button btnInformePendientes = new Button("📦 Artículos Pendientes");
-	// private final Button btnEtiquetas = new Button("🏷 Imprimir Etiquetas / QR");
 
 	private final Button btnFueraDePlazo = new Button("🚨 Fuera de Plazo");
 
@@ -45,7 +43,7 @@ public class Vista {
 		String estiloHeader = "-fx-background-color: linear-gradient(to right, #0f2027, #203a43, #2c5364);";
 		String estiloSidebar = "-fx-background-color: #1e272e;";
 
-		// --- SIDEBAR ---
+		// SIDEBAR
 		VBox sidebar = new VBox(2);
 		sidebar.setPrefWidth(250);
 		sidebar.setStyle(estiloSidebar);
@@ -88,7 +86,7 @@ public class Vista {
 				btnFueraDePlazo, new Separator(), crearEtiquetaSeccion("COMPRAS"), btnCompras, new Separator(),
 				crearEtiquetaSeccion("ÓRDENES"), btnOrdenesTrabajos, espaciadorVertical, bloqueContacto);
 
-		// --- BARRA SUPERIOR ---
+		// BARRA SUPERIOR 
 		HBox topBar = new HBox(15);
 		topBar.setPadding(new Insets(15, 25, 15, 25));
 		topBar.setAlignment(Pos.CENTER_LEFT);
@@ -109,7 +107,7 @@ public class Vista {
 		HBox.setHgrow(spacer, Priority.ALWAYS);
 		topBar.getChildren().addAll(lblLogo, spacer, new Label("🔍"), txtInput, btnLimpiarInput);
 
-		// --- PANEL CENTRAL ---
+		// PANEL CENTRAL 
 		VBox centroPrincipal = new VBox(40);
 		centroPrincipal.setPadding(new Insets(40, 25, 25, 25));
 		centroPrincipal.setStyle("-fx-background-color: #f0f2f5;");
@@ -132,16 +130,23 @@ public class Vista {
 		scrollCentro
 				.setStyle("-fx-background-color: transparent; -fx-background: #f8f9fa; -fx-border-color: transparent;");
 
-		// --- BARRA DE ESTADO ---
+		// BARRA DE ESTADO 
 		HBox barraEstado = new HBox(10);
 		barraEstado.setPadding(new Insets(8, 20, 8, 20));
 		barraEstado.setStyle("-fx-background-color: white; -fx-border-color: #dfe4ea; -fx-border-width: 1 0 0 0;");
 		lblEstado.setStyle("-fx-text-fill: #2f3542; -fx-font-weight: bold;");
 		barraEstado.getChildren().addAll(new Label("📌 Estado:"), lblEstado);
 
+		ScrollPane scrollSidebar = new ScrollPane(sidebar);
+		scrollSidebar.setFitToWidth(true);
+		scrollSidebar.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+		scrollSidebar.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+		scrollSidebar
+				.setStyle("-fx-background-color: #1e272e; -fx-background: #1e272e; -fx-border-color: transparent;");
+
 		BorderPane layout = new BorderPane();
 		layout.setTop(topBar);
-		layout.setLeft(sidebar);
+		layout.setLeft(scrollSidebar); 
 		layout.setCenter(scrollCentro);
 		layout.setBottom(barraEstado);
 
@@ -239,7 +244,7 @@ public class Vista {
 		return l;
 	}
 
-	// --- MÉTODOS DE SOPORTE ---
+	// MÉTODOS DE SOPORTE 
 	public void actualizarDashboard(int obras, int materiales, int alertas) {
 		javafx.application.Platform.runLater(() -> {
 			lblNumObras.setText(String.valueOf(obras));

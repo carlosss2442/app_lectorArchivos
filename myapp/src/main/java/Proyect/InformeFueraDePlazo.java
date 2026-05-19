@@ -571,7 +571,7 @@ public class InformeFueraDePlazo {
 		if (texto == null || texto.isBlank())
 			return null;
 
-		// Fix: corregir año 0026 → 2026
+		
 		texto = texto.trim();
 		if (texto.matches("\\d{1,2}/\\d{1,2}/00\\d{2}")) {
 			texto = texto.replaceAll("/00(\\d{2})$", "/20$1");
